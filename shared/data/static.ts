@@ -1,4 +1,19 @@
-import type { Bookmark } from "../types";
+import type { Bookmark, Folder } from "../types";
+
+export const STATIC_FOLDERS: Folder[] = [
+  {
+    id: "00000000-0000-0000-0000-000000000001",
+    name: "Crowdsourcing",
+    rules: { match: "any", conditions: [{ type: "tag", value: "crowdsourcing" }] },
+    bookmark_ids: [],
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000002",
+    name: "Fediverse",
+    rules: { match: "any", conditions: [{ type: "tag", value: "fediverse" }] },
+    bookmark_ids: [],
+  },
+];
 
 export const STATIC_BOOKMARKS: Bookmark[] = [
   {

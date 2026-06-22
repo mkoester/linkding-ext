@@ -51,6 +51,17 @@ function renderFolder(folder: Folder, bookmarkMap: BookmarkMap): HTMLElement {
 
   const summary = document.createElement("summary");
   summary.textContent = folder.name;
+  summary.addEventListener("mousedown", (e) => {
+    if (e.button !== 1) return;
+    e.preventDefault();
+    const bookmarks = folder.bookmark_ids
+      .map((id) => bookmarkMap[id])
+      .filter((b): b is Bookmark => b != null);
+    for (const bookmark of bookmarks) {
+      ext.tabs.create({ url: bookmark.url });
+    }
+    window.close();
+  });
   details.appendChild(summary);
 
   const ul = document.createElement("ul");

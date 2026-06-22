@@ -1,6 +1,7 @@
 import ext from "./browser";
 import type { BookmarkMap, Folder, Settings, StorageSchema } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
+import { STATIC_FOLDERS } from "./data/static";
 
 const STORAGE_WARNING_BYTES = 9 * 1024 * 1024; // 9 MB
 
@@ -20,7 +21,7 @@ export async function getBookmarks(): Promise<BookmarkMap> {
 
 export async function getFolders(): Promise<Folder[]> {
   const result = await ext.storage.local.get("folders");
-  return (result.folders as Folder[]) ?? [];
+  return (result.folders as Folder[]) ?? STATIC_FOLDERS;
 }
 
 export async function saveFolders(folders: Folder[]): Promise<void> {

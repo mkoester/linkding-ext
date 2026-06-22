@@ -11,6 +11,7 @@
 - `pnpm build` — produces `dist/chrome/` and `dist/firefox/` via webpack
 - Load in Firefox: `about:debugging` → Load Temporary Add-on → `dist/firefox/manifest.json`
 - Load in Chrome: `chrome://extensions` → Enable developer mode → Load unpacked → `dist/chrome/`
+- **Version bumping:** increment the patch version in `manifests/manifest.shared.json` by 1 whenever building something the user should test in the browser (early development convention)
 
 ## Architecture decisions (already made, don't revisit)
 
@@ -33,6 +34,7 @@
 - Incremental by default (`modified_since`), full sync only on first install or empty cache
 - Deletions from Linkding are not handled yet (see "What's missing")
 - `useStaticData: true` in default settings — uses `shared/data/static.ts` instead of real API; no Linkding connection needed for development
+- `getFolders()` falls back to `STATIC_FOLDERS` when storage is empty (so there's always something to render during development)
 
 **Folder rules**
 ```typescript
@@ -66,7 +68,8 @@ shared/
                       mergeIntoMap, computeFolderMembership
   api.ts            — Linkding REST client (fetchAllBookmarks, fetchModifiedSince)
   validation.ts     — validateBookmarks() for manually provided JSON
-  data/static.ts    — 17 hardcoded bookmarks for development
+  data/static.ts    — STATIC_BOOKMARKS (17 hardcoded bookmarks) + STATIC_FOLDERS
+                      (2 default folders: Crowdsourcing, Fediverse) for development
 
 src/
   background/background.ts   — service worker: sync orchestration, alarms, message handler
