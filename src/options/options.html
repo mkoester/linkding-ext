@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Linkding Extension Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div id="app">
+    <h1>Linkding Bookmarks</h1>
+
+    <section>
+      <h2>Connection</h2>
+      <label>
+        Linkding URL
+        <input type="url" id="linkding-url" placeholder="https://linkding.example.com" />
+      </label>
+      <label>
+        API Token
+        <input type="password" id="linkding-token" placeholder="Your API token" />
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" id="use-static-data" />
+        Use static demo data (no Linkding connection needed)
+      </label>
+    </section>
+
+    <section>
+      <h2>Sync</h2>
+      <label>
+        Sync interval (minutes)
+        <input type="number" id="sync-interval" min="1" max="60" value="15" />
+      </label>
+    </section>
+
+    <section>
+      <h2>Folders</h2>
+      <p class="hint">Folders are defined as rules that match bookmarks by tag, URL, or title.</p>
+      <div id="folder-list"></div>
+      <button id="add-folder">+ Add folder</button>
+    </section>
+
+    <div id="status"></div>
+    <button id="save">Save settings</button>
+  </div>
+  <script src="../options.js"></script>
+</body>
+</html>

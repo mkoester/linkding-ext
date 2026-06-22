@@ -1,0 +1,96 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  padding: 2rem;
+}
+
+#header {
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+#folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.folder {
+  min-width: 180px;
+}
+
+.folder h2 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  margin-bottom: 0.5rem;
+}
+
+.folder ul {
+  list-style: none;
+}
+
+.folder li {
+  margin-bottom: 0.25rem;
+}
+
+.folder a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #c8d6e5;
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.folder a:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.folder a img {
+  flex-shrink: 0;
+}
+
+.empty {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.empty a {
+  color: #7eb8f7;
+}
+
+#storage-warning {
+  margin-top: 2rem;
+  padding: 0.75rem 1rem;
+  background: #3a2a00;
+  border: 1px solid #996600;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+#storage-warning button {
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  background: #996600;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+}
+
+.hidden {
+  display: none;
+}
