@@ -1,5 +1,9 @@
 {
+  "permissions": ["favicon", "sidePanel"],
   "optional_permissions": ["unlimitedStorage"],
+  "side_panel": {
+    "default_path": "sidebar/sidebar.html"
+  },
   "background": {
     "service_worker": "background.js"
   }

@@ -5,14 +5,6 @@ import type {
   RuleCondition,
 } from "./types";
 
-// ---- Favicon ----------------------------------------------------------------
-
-export function getFaviconUrl(bookmark: Bookmark): string {
-  if (bookmark.favicon_url) return bookmark.favicon_url;
-  const origin = new URL(bookmark.url).origin;
-  return `${origin}/favicon.ico`;
-}
-
 // ---- Map conversion ---------------------------------------------------------
 
 export function bookmarksToMap(bookmarks: Bookmark[]): BookmarkMap {

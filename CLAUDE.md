@@ -39,9 +39,11 @@
 - `bookmark_ids` recomputed in background worker after every sync, not at render time
 - `lastSync` stored as ISO string (currently informational only — all providers do full sync)
 
-**Favicon strategy**
-- `favicon_url` is optional on `Bookmark` — only stored when a provider returns one
-- Fallback at render time: `${new URL(bookmark.url).origin}/favicon.ico`
+**Favicon strategy** (`shared/favicon.ts` — `renderFavicon(bookmark, size)`)
+- `favicon_url` is optional on `Bookmark` — only stored when a provider returns one; always preferred when present (Linkding supplies it server-resolved)
+- **Chrome**: uses the browser's cached favicons via the `_favicon` endpoint (`ext.runtime.getURL("/_favicon/?pageUrl=…&size=…")`), gated on the `"favicon"` permission (Chrome manifest only). Handles `<link rel="icon">` declarations; no network request.
+- **Firefox**: no favicon API exists, so it falls back to guessing `${origin}/favicon.ico`.
+- **Last resort (both)**: an inline-SVG letter tile (site initial on a hue derived from the URL) when the icon fails to load. No more empty gaps.
 
 **Sync flow**
 - Background service worker owns all sync logic
