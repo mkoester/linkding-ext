@@ -1,6 +1,6 @@
 import ext from "@shared/browser";
 import { getBookmarks, getFolders } from "@shared/storage";
-import { getFaviconUrl } from "@shared/bookmarks";
+import { renderFavicon } from "@shared/favicon";
 import type { Bookmark, BookmarkMap, Folder, Message } from "@shared/types";
 
 async function init(): Promise<void> {
@@ -73,17 +73,10 @@ function renderBookmark(bookmark: Bookmark): HTMLElement {
     window.close();
   });
 
-  const img = document.createElement("img");
-  img.src = getFaviconUrl(bookmark);
-  img.alt = "";
-  img.width = 14;
-  img.height = 14;
-  img.onerror = () => { img.style.display = "none"; };
-
   const span = document.createElement("span");
   span.textContent = bookmark.title;
 
-  a.appendChild(img);
+  a.appendChild(renderFavicon(bookmark, 14));
   a.appendChild(span);
   li.appendChild(a);
   return li;

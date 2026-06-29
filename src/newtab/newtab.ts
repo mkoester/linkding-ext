@@ -1,7 +1,11 @@
 import ext from "@shared/browser";
 import { getBookmarks, getFolders } from "@shared/storage";
-import { getFaviconUrl } from "@shared/bookmarks";
+import { renderFavicon } from "@shared/favicon";
 import type { Bookmark, BookmarkMap, Folder, Message } from "@shared/types";
+
+// Skip re-rendering (and aborting in-flight favicon loads) when a sync writes
+// back data that's identical to what's already on screen.
+let lastRenderKey = "";
 
 // ---- Init -------------------------------------------------------------------
 
@@ -18,6 +22,10 @@ async function render(): Promise<void> {
     getBookmarks(),
     getFolders(),
   ]);
+
+  const key = JSON.stringify({ bookmarkMap, folders });
+  if (key === lastRenderKey) return;
+  lastRenderKey = key;
 
   renderFolders(bookmarkMap, folders);
 }
@@ -69,17 +77,10 @@ function renderBookmark(bookmark: Bookmark): HTMLElement {
   a.target = "_blank";
   a.rel = "noopener noreferrer";
 
-  const img = document.createElement("img");
-  img.src = getFaviconUrl(bookmark);
-  img.alt = "";
-  img.width = 16;
-  img.height = 16;
-  img.onerror = () => { img.style.display = "none"; };
-
   const span = document.createElement("span");
   span.textContent = bookmark.title;
 
-  a.appendChild(img);
+  a.appendChild(renderFavicon(bookmark, 16));
   a.appendChild(span);
   li.appendChild(a);
   return li;
