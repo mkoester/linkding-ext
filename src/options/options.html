@@ -2,27 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Linkding Extension Settings</title>
+  <title>Bookmarks+ Settings</title>
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
   <div id="app">
-    <h1>Linkding Bookmarks</h1>
+    <h1>Bookmarks+</h1>
 
     <section>
-      <h2>Connection</h2>
-      <label>
-        Linkding URL
-        <input type="url" id="linkding-url" placeholder="https://linkding.example.com" />
-      </label>
-      <label>
-        API Token
-        <input type="password" id="linkding-token" placeholder="Your API token" />
-      </label>
-      <label class="checkbox">
-        <input type="checkbox" id="use-static-data" />
-        Use static demo data (no Linkding connection needed)
-      </label>
+      <h2>Providers</h2>
+      <p class="hint">Bookmarks are fetched from one or more providers and merged into a single collection.</p>
+      <div id="provider-list"></div>
+      <div class="add-provider-row">
+        <select id="provider-type-select">
+          <option value="static">Static (built-in demo data)</option>
+          <option value="json">JSON (paste your own)</option>
+          <option value="browser">Browser bookmarks</option>
+          <option value="linkding">Linkding</option>
+        </select>
+        <button id="add-provider">+ Add provider</button>
+      </div>
     </section>
 
     <section>

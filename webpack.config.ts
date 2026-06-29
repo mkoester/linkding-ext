@@ -1,4 +1,5 @@
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import CopyPlugin from "copy-webpack-plugin";
 import { merge } from "webpack-merge";
@@ -6,6 +7,30 @@ import type { Configuration } from "webpack";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const sharedManifest = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, "manifests/manifest.shared.json"), "utf-8")
+);
+
+// Deep merge: objects are merged recursively; arrays are unioned (deduplicated).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function deepMergeManifests(base: any, override: any): any {
+  const result = { ...base };
+  for (const key of Object.keys(override)) {
+    if (Array.isArray(override[key]) && Array.isArray(base[key])) {
+      result[key] = [...new Set([...base[key], ...override[key]])];
+    } else if (
+      typeof override[key] === "object" &&
+      override[key] !== null &&
+      !Array.isArray(override[key])
+    ) {
+      result[key] = deepMergeManifests(base[key] ?? {}, override[key]);
+    } else {
+      result[key] = override[key];
+    }
+  }
+  return result;
+}
 
 const shared: Configuration = {
   mode: "development",
@@ -55,6 +80,11 @@ export default (env: { browser: "chrome" | "firefox" }): Configuration => {
           {
             from: `manifests/manifest.${browser}.json`,
             to: "manifest.json",
+            transform(content: Buffer) {
+              const browserManifest = JSON.parse(content.toString());
+              const merged = deepMergeManifests(sharedManifest, browserManifest);
+              return JSON.stringify(merged, null, 2);
+            },
           },
         ],
       }),

@@ -1,13 +1,18 @@
 import ext from "@shared/browser";
-import {
-  getFolders,
-  getSettings,
-  saveFolders,
-  saveSettings,
-} from "@shared/storage";
-import type { Folder, FolderRules, RuleCondition, Settings } from "@shared/types";
+import { getFolders, getSettings, saveFolders, saveSettings } from "@shared/storage";
+import type {
+  Folder,
+  FolderRules,
+  LinkdingProviderConfig,
+  JsonProviderConfig,
+  ProviderConfig,
+  ProviderType,
+  RuleCondition,
+  Settings,
+} from "@shared/types";
 
 let folders: Folder[] = [];
+let providers: ProviderConfig[] = [];
 
 async function init(): Promise<void> {
   const [settings, savedFolders] = await Promise.all([
@@ -16,19 +21,16 @@ async function init(): Promise<void> {
   ]);
 
   folders = savedFolders;
+  providers = settings.providers;
 
-  (document.getElementById("linkding-url") as HTMLInputElement).value =
-    settings.linkdingUrl ?? "";
-  (document.getElementById("linkding-token") as HTMLInputElement).value =
-    settings.linkdingToken ?? "";
   (document.getElementById("sync-interval") as HTMLInputElement).value =
     String(settings.syncIntervalMinutes);
-  (document.getElementById("use-static-data") as HTMLInputElement).checked =
-    settings.useStaticData;
 
+  renderProviderList();
   renderFolderList();
 
   document.getElementById("save")?.addEventListener("click", save);
+  document.getElementById("add-provider")?.addEventListener("click", addProvider);
   document.getElementById("add-folder")?.addEventListener("click", addFolder);
 }
 
@@ -36,26 +38,163 @@ async function init(): Promise<void> {
 
 async function save(): Promise<void> {
   const settings: Settings = {
-    linkdingUrl:
-      (document.getElementById("linkding-url") as HTMLInputElement).value.trim() || null,
-    linkdingToken:
-      (document.getElementById("linkding-token") as HTMLInputElement).value.trim() || null,
     syncIntervalMinutes: parseInt(
       (document.getElementById("sync-interval") as HTMLInputElement).value,
       10
     ),
-    useStaticData: (document.getElementById("use-static-data") as HTMLInputElement).checked,
+    providers,
   };
+
+  // Permission request must be the first await — user gesture activation expires after the first
+  // async operation in Firefox.
+  const hasBrowserProvider = settings.providers.some((p) => p.type === "browser");
+  let browserPermissionGranted = !hasBrowserProvider;
+  if (hasBrowserProvider) {
+    browserPermissionGranted = await ext.permissions.request({ permissions: ["bookmarks"] });
+  }
 
   await saveSettings(settings);
   await saveFolders(folders);
 
-  // Trigger a re-sync with the new settings
-  await ext.runtime.sendMessage({ type: "sync_requested" });
+  if (browserPermissionGranted) {
+    await ext.runtime.sendMessage({ type: "sync_requested" });
+  }
 
   const status = document.getElementById("status")!;
   status.textContent = "Saved.";
   setTimeout(() => { status.textContent = ""; }, 2000);
+}
+
+// ---- Provider list ----------------------------------------------------------
+
+function renderProviderList(): void {
+  const container = document.getElementById("provider-list")!;
+  container.innerHTML = "";
+  providers.forEach((provider, index) => {
+    container.appendChild(renderProviderEditor(provider, index));
+  });
+}
+
+function renderProviderEditor(provider: ProviderConfig, index: number): HTMLElement {
+  const div = document.createElement("div");
+  div.className = "provider-editor";
+
+  const header = document.createElement("div");
+  header.className = "provider-header";
+
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.value = provider.name;
+  nameInput.placeholder = "Provider name";
+  nameInput.addEventListener("input", () => {
+    providers[index] = { ...providers[index], name: nameInput.value };
+  });
+
+  const typeBadge = document.createElement("span");
+  typeBadge.className = "provider-type-badge";
+  typeBadge.textContent = provider.type;
+
+  const removeBtn = document.createElement("button");
+  removeBtn.textContent = "Remove";
+  removeBtn.addEventListener("click", () => {
+    providers.splice(index, 1);
+    renderProviderList();
+  });
+
+  header.appendChild(nameInput);
+  header.appendChild(typeBadge);
+  header.appendChild(removeBtn);
+  div.appendChild(header);
+
+  const configDiv = renderProviderConfig(provider, index);
+  if (configDiv) div.appendChild(configDiv);
+
+  return div;
+}
+
+function renderProviderConfig(provider: ProviderConfig, index: number): HTMLElement | null {
+  if (provider.type === "linkding") {
+    return renderLinkdingConfig(provider, index);
+  }
+  if (provider.type === "json") {
+    return renderJsonConfig(provider, index);
+  }
+  if (provider.type === "browser") {
+    const note = document.createElement("p");
+    note.className = "provider-note";
+    note.textContent = "Imports browser bookmarks. Folder path becomes tags. Will request the bookmarks permission on first sync.";
+    return note;
+  }
+  // static: no config
+  return null;
+}
+
+function renderLinkdingConfig(provider: LinkdingProviderConfig, index: number): HTMLElement {
+  const div = document.createElement("div");
+  div.className = "provider-config";
+
+  const urlLabel = document.createElement("label");
+  urlLabel.textContent = "URL";
+  const urlInput = document.createElement("input");
+  urlInput.type = "url";
+  urlInput.value = provider.url;
+  urlInput.placeholder = "https://my-linkding-instance.example.com";
+  urlInput.addEventListener("input", () => {
+    (providers[index] as LinkdingProviderConfig).url = urlInput.value.trim();
+  });
+  urlLabel.appendChild(urlInput);
+
+  const tokenLabel = document.createElement("label");
+  tokenLabel.textContent = "API token";
+  const tokenInput = document.createElement("input");
+  tokenInput.type = "password";
+  tokenInput.value = provider.token;
+  tokenInput.placeholder = "Token …";
+  tokenInput.addEventListener("input", () => {
+    (providers[index] as LinkdingProviderConfig).token = tokenInput.value.trim();
+  });
+  tokenLabel.appendChild(tokenInput);
+
+  div.appendChild(urlLabel);
+  div.appendChild(tokenLabel);
+  return div;
+}
+
+function renderJsonConfig(provider: JsonProviderConfig, index: number): HTMLElement {
+  const div = document.createElement("div");
+  div.className = "provider-config";
+
+  const label = document.createElement("label");
+  label.textContent = "Bookmarks JSON";
+  const textarea = document.createElement("textarea");
+  textarea.rows = 6;
+  textarea.value = provider.data;
+  textarea.placeholder = '[{"url":"https://example.com","title":"Example","tag_names":["tag1"]}]';
+  textarea.addEventListener("input", () => {
+    (providers[index] as JsonProviderConfig).data = textarea.value;
+  });
+  label.appendChild(textarea);
+
+  div.appendChild(label);
+  return div;
+}
+
+function addProvider(): void {
+  const select = document.getElementById("provider-type-select") as HTMLSelectElement;
+  const type = select.value as ProviderType;
+
+  const base = { id: crypto.randomUUID(), name: type, type };
+
+  let config: ProviderConfig;
+  switch (type) {
+    case "static":  config = { ...base, type: "static" }; break;
+    case "json":    config = { ...base, type: "json", data: "" }; break;
+    case "browser": config = { ...base, type: "browser" }; break;
+    case "linkding": config = { ...base, type: "linkding", url: "", token: "" }; break;
+  }
+
+  providers.push(config);
+  renderProviderList();
 }
 
 // ---- Folder list rendering --------------------------------------------------

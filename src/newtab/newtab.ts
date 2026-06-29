@@ -1,8 +1,7 @@
 import ext from "@shared/browser";
-import { getBookmarks, getFolders, requestUnlimitedStorage } from "@shared/storage";
+import { getBookmarks, getFolders } from "@shared/storage";
 import { getFaviconUrl } from "@shared/bookmarks";
-import type { Bookmark, BookmarkMap, Folder } from "@shared/types";
-import type { Message } from "@shared/types";
+import type { Bookmark, BookmarkMap, Folder, Message } from "@shared/types";
 
 // ---- Init -------------------------------------------------------------------
 
@@ -98,25 +97,10 @@ function requestSync(): void {
 function listenForChanges(): void {
   ext.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-
     if (changes.bookmarks || changes.folders) {
       render();
     }
-
-    if (changes.needsUnlimitedStorage?.newValue === true) {
-      document.getElementById("storage-warning")?.classList.remove("hidden");
-    }
   });
-
-  document
-    .getElementById("request-storage")
-    ?.addEventListener("click", async () => {
-      const granted = await requestUnlimitedStorage();
-      if (granted) {
-        await ext.storage.local.remove("needsUnlimitedStorage");
-        document.getElementById("storage-warning")?.classList.add("hidden");
-      }
-    });
 }
 
 // ---- Boot -------------------------------------------------------------------

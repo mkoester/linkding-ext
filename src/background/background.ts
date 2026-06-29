@@ -1,22 +1,11 @@
 import ext from "@shared/browser";
-import { fetchAllBookmarks, fetchModifiedSince } from "@shared/api";
-import {
-  getBookmarks,
-  getFolders,
-  getLastSync,
-  getSettings,
-  saveBookmarksAndSync,
-} from "@shared/storage";
-import {
-  bookmarksToMap,
-  computeFolderMembership,
-  mergeIntoMap,
-} from "@shared/bookmarks";
-import { STATIC_BOOKMARKS } from "@shared/data/static";
+import { getBookmarks, getFolders, getSettings, saveBookmarksAndSync } from "@shared/storage";
+import { bookmarksToMap, computeFolderMembership } from "@shared/bookmarks";
+import { createProvider } from "@shared/providers/index";
 import type { Message } from "@shared/types";
 
-const SYNC_ALARM = "linkding-sync";
-const MIN_SYNC_INTERVAL_MS = 60_000; // 1 minute debounce
+const SYNC_ALARM = "bookmarks-plus-sync";
+const MIN_SYNC_INTERVAL_MS = 60_000;
 
 let syncing = false;
 let lastSyncAttempt = 0;
@@ -76,57 +65,27 @@ async function sync(): Promise<void> {
 
   try {
     const settings = await getSettings();
+    const allBookmarks = [];
 
-    if (settings.useStaticData) {
-      await syncStatic();
-    } else {
-      await syncLinkding();
+    for (const config of settings.providers) {
+      try {
+        const provider = createProvider(config);
+        const bookmarks = await provider.sync();
+        allBookmarks.push(...bookmarks);
+        console.log(`Provider "${config.name}": ${bookmarks.length} bookmarks`);
+      } catch (err) {
+        console.error(`Provider "${config.name}" sync failed:`, err);
+      }
     }
+
+    const map = bookmarksToMap(allBookmarks);
+    const folders = await getFolders();
+    const recomputed = computeFolderMembership(map, folders);
+    await saveBookmarksAndSync(map, recomputed, new Date().toISOString());
+    console.log(`Sync complete: ${allBookmarks.length} bookmarks total`);
   } catch (error) {
     console.error("Sync failed:", error);
   } finally {
     syncing = false;
   }
-}
-
-async function syncStatic(): Promise<void> {
-  console.log("Using static bookmark data");
-  const bookmarkMap = bookmarksToMap(STATIC_BOOKMARKS);
-  const folders = await getFolders();
-  const recomputed = computeFolderMembership(bookmarkMap, folders);
-  await saveBookmarksAndSync(bookmarkMap, recomputed, new Date().toISOString());
-}
-
-async function syncLinkding(): Promise<void> {
-  const lastSync = await getLastSync();
-  const existing = await getBookmarks();
-
-  let updatedMap;
-
-  if (!lastSync || Object.keys(existing).length === 0) {
-    console.log("Full sync from Linkding");
-    const response = await fetchAllBookmarks();
-    updatedMap = bookmarksToMap(
-      response.results.map((b) => ({
-        id: b.id,
-        url: b.url,
-        title: b.title || b.url,
-        tag_names: b.tag_names,
-        ...(b.favicon_url ? { favicon_url: b.favicon_url } : {}),
-      }))
-    );
-  } else {
-    console.log(`Incremental sync since ${lastSync}`);
-    const response = await fetchModifiedSince(lastSync);
-    if (response.results.length === 0) {
-      console.log("No changes since last sync");
-      return;
-    }
-    updatedMap = mergeIntoMap(existing, response.results);
-  }
-
-  const folders = await getFolders();
-  const recomputed = computeFolderMembership(updatedMap, folders);
-  await saveBookmarksAndSync(updatedMap, recomputed, new Date().toISOString());
-  console.log(`Sync complete: ${Object.keys(updatedMap).length} bookmarks`);
 }

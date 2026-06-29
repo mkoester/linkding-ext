@@ -2,24 +2,8 @@ import type {
   Bookmark,
   BookmarkMap,
   Folder,
-  LinkdingBookmark,
   RuleCondition,
 } from "./types";
-
-// ---- Trim -------------------------------------------------------------------
-
-export function trimBookmark(b: LinkdingBookmark): Bookmark {
-  const trimmed: Bookmark = {
-    id: b.id,
-    url: b.url,
-    title: b.title || b.url,
-    tag_names: b.tag_names,
-  };
-  if (b.favicon_url) {
-    trimmed.favicon_url = b.favicon_url;
-  }
-  return trimmed;
-}
 
 // ---- Favicon ----------------------------------------------------------------
 
@@ -41,13 +25,10 @@ export function bookmarkMapToArray(map: BookmarkMap): Bookmark[] {
 
 // ---- Incremental sync merge -------------------------------------------------
 
-export function mergeIntoMap(
-  existing: BookmarkMap,
-  updated: LinkdingBookmark[]
-): BookmarkMap {
+export function mergeIntoMap(existing: BookmarkMap, updated: Bookmark[]): BookmarkMap {
   const result = { ...existing };
   for (const b of updated) {
-    result[b.id] = trimBookmark(b);
+    result[b.id] = b;
   }
   return result;
 }

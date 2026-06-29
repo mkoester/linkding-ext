@@ -1,35 +1,11 @@
 {
-  "manifest_version": 3,
-  "name": "Linkding Bookmarks",
-  "version": "0.1.0",
-  "description": "Quick access to your Linkding bookmarks",
-  "permissions": ["storage", "alarms"],
-  "optional_host_permissions": ["<all_urls>"],
   "background": {
     "scripts": ["background.js"]
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "linkding-ext@mkde.me",
+      "id": "bookmarksplus-ext@mirkokoester.de",
       "strict_min_version": "128.0"
     }
-  },
-  "action": {
-    "default_popup": "popup/popup.html",
-    "default_icon": {
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    }
-  },
-  "chrome_url_overrides": {
-    "newtab": "newtab/newtab.html"
-  },
-  "options_ui": {
-    "page": "options/options.html",
-    "open_in_tab": false
-  },
-  "icons": {
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
   }
 }

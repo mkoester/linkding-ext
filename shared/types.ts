@@ -1,14 +1,14 @@
 // ---- Bookmark ---------------------------------------------------------------
 
 export interface Bookmark {
-  id: number;
+  id: string; // namespaced: "${providerConfigId}:${rawId}"
   url: string;
   title: string;
   tag_names: string[];
   favicon_url?: string;
 }
 
-export type BookmarkMap = Record<number, Bookmark>;
+export type BookmarkMap = Record<string, Bookmark>;
 
 // ---- Folder rules -----------------------------------------------------------
 
@@ -28,7 +28,48 @@ export interface Folder {
   id: string;
   name: string;
   rules: FolderRules;
-  bookmark_ids: number[]; // precomputed at sync time
+  bookmark_ids: string[]; // precomputed at sync time
+}
+
+// ---- Provider configs -------------------------------------------------------
+
+export type ProviderType = "static" | "json" | "browser" | "linkding";
+
+interface BaseProviderConfig {
+  id: string;
+  type: ProviderType;
+  name: string;
+}
+
+export interface StaticProviderConfig extends BaseProviderConfig {
+  type: "static";
+}
+
+export interface JsonProviderConfig extends BaseProviderConfig {
+  type: "json";
+  data: string;
+}
+
+export interface BrowserProviderConfig extends BaseProviderConfig {
+  type: "browser";
+}
+
+export interface LinkdingProviderConfig extends BaseProviderConfig {
+  type: "linkding";
+  url: string;
+  token: string;
+}
+
+export type ProviderConfig =
+  | StaticProviderConfig
+  | JsonProviderConfig
+  | BrowserProviderConfig
+  | LinkdingProviderConfig;
+
+// ---- Provider interface -----------------------------------------------------
+
+export interface BookmarkProvider {
+  sync(): Promise<Bookmark[]>;
 }
 
 // ---- Storage schema ---------------------------------------------------------
@@ -38,23 +79,20 @@ export interface StorageSchema {
   folders: Folder[];
   lastSync: string | null;
   settings: Settings;
-  needsUnlimitedStorage?: boolean;
 }
 
 // ---- Settings ---------------------------------------------------------------
 
 export interface Settings {
-  linkdingUrl: string | null;
-  linkdingToken: string | null;
   syncIntervalMinutes: number;
-  useStaticData: boolean;
+  providers: ProviderConfig[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  linkdingUrl: null,
-  linkdingToken: null,
   syncIntervalMinutes: 15,
-  useStaticData: true,
+  providers: [
+    { id: "static-default", type: "static", name: "Static" },
+  ],
 };
 
 // ---- Messages ---------------------------------------------------------------

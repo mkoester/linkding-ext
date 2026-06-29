@@ -1,6 +1,11 @@
 import type { Bookmark } from "./types";
 
-function validateBookmark(b: unknown, index: number): string[] {
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+function validateBookmarkEntry(b: unknown, index: number): string[] {
   const errors: string[] = [];
   const prefix = `bookmarks[${index}]`;
 
@@ -9,14 +14,6 @@ function validateBookmark(b: unknown, index: number): string[] {
   }
 
   const bookmark = b as Record<string, unknown>;
-
-  if (
-    typeof bookmark.id !== "number" ||
-    !Number.isInteger(bookmark.id) ||
-    bookmark.id < 1
-  ) {
-    errors.push(`${prefix}: id must be a positive integer`);
-  }
 
   if (typeof bookmark.url !== "string" || !bookmark.url.trim()) {
     errors.push(`${prefix}: url must be a non-empty string`);
@@ -32,25 +29,20 @@ function validateBookmark(b: unknown, index: number): string[] {
     errors.push(`${prefix}: title must be a non-empty string`);
   }
 
-  if (!Array.isArray(bookmark.tag_names)) {
-    errors.push(`${prefix}: tag_names must be an array`);
-  } else if (
-    !bookmark.tag_names.every((t) => typeof t === "string" && t.trim())
-  ) {
-    errors.push(`${prefix}: tag_names must contain only non-empty strings`);
+  if ("tag_names" in bookmark) {
+    if (!Array.isArray(bookmark.tag_names)) {
+      errors.push(`${prefix}: tag_names must be an array`);
+    } else if (!bookmark.tag_names.every((t) => typeof t === "string" && t.trim())) {
+      errors.push(`${prefix}: tag_names must contain only non-empty strings`);
+    }
   }
 
   if ("favicon_url" in bookmark) {
-    if (
-      typeof bookmark.favicon_url !== "string" ||
-      !bookmark.favicon_url.trim()
-    ) {
-      errors.push(
-        `${prefix}: favicon_url must be a non-empty string when present`
-      );
+    if (typeof bookmark.favicon_url !== "string" || !bookmark.favicon_url.trim()) {
+      errors.push(`${prefix}: favicon_url must be a non-empty string when present`);
     } else {
       try {
-        new URL(bookmark.favicon_url);
+        new URL(bookmark.favicon_url as string);
       } catch {
         errors.push(`${prefix}: favicon_url is not a valid URL`);
       }
@@ -58,11 +50,6 @@ function validateBookmark(b: unknown, index: number): string[] {
   }
 
   return errors;
-}
-
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
 }
 
 export function validateBookmarks(data: unknown): ValidationResult {
@@ -74,16 +61,29 @@ export function validateBookmarks(data: unknown): ValidationResult {
     return { valid: false, errors: ["array must not be empty"] };
   }
 
-  const errors = data.flatMap((b, i) => validateBookmark(b, i));
-
-  const ids = data
-    .filter((b) => typeof (b as Record<string, unknown>).id === "number")
-    .map((b) => (b as Record<string, unknown>).id as number);
-
-  const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);
-  if (duplicates.length > 0) {
-    errors.push(`duplicate ids found: ${[...new Set(duplicates)].join(", ")}`);
-  }
-
+  const errors = data.flatMap((b, i) => validateBookmarkEntry(b, i));
   return { valid: errors.length === 0, errors };
+}
+
+// Converts a validated raw entry to a Bookmark, namespaced under providerId.
+// Falls back to array index if id is absent.
+export function entryToBookmark(
+  entry: Record<string, unknown>,
+  index: number,
+  providerId: string
+): Bookmark {
+  const rawId =
+    entry.id !== undefined && entry.id !== null
+      ? String(entry.id)
+      : String(index);
+
+  return {
+    id: `${providerId}:${rawId}`,
+    url: entry.url as string,
+    title: entry.title as string,
+    tag_names: Array.isArray(entry.tag_names)
+      ? (entry.tag_names as string[])
+      : [],
+    ...(typeof entry.favicon_url === "string" ? { favicon_url: entry.favicon_url } : {}),
+  };
 }

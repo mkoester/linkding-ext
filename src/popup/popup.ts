@@ -1,13 +1,12 @@
 import ext from "@shared/browser";
-import { getBookmarks, getFolders, getSettings } from "@shared/storage";
+import { getBookmarks, getFolders } from "@shared/storage";
 import { getFaviconUrl } from "@shared/bookmarks";
 import type { Bookmark, BookmarkMap, Folder, Message } from "@shared/types";
 
 async function init(): Promise<void> {
-  const [bookmarkMap, folders, settings] = await Promise.all([
+  const [bookmarkMap, folders] = await Promise.all([
     getBookmarks(),
     getFolders(),
-    getSettings(),
   ]);
 
   renderFolders(bookmarkMap, folders);
@@ -17,17 +16,6 @@ async function init(): Promise<void> {
     window.close();
   });
 
-  const linkdingBtn = document.getElementById("open-linkding")!;
-  if (settings.linkdingUrl) {
-    linkdingBtn.addEventListener("click", () => {
-      ext.tabs.create({ url: settings.linkdingUrl! });
-      window.close();
-    });
-  } else {
-    linkdingBtn.setAttribute("disabled", "true");
-  }
-
-  // trigger a background sync but don't wait for it
   const message: Message = { type: "sync_requested" };
   ext.runtime.sendMessage(message).catch(() => {});
 }

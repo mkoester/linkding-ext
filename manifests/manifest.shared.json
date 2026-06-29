@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Linkding Bookmarks",
-  "version": "0.1.1",
-  "description": "Quick access to your Linkding bookmarks",
-  "permissions": ["storage"],
-  "optional_permissions": ["unlimitedStorage"],
+  "name": "Bookmarks+",
+  "version": "0.1.7",
+  "description": "Quick access to your important bookmarks",
+  "permissions": ["storage", "alarms"],
+  "optional_permissions": ["bookmarks"],
   "optional_host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup/popup.html",
