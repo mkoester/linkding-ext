@@ -122,7 +122,12 @@ function renderProviderConfig(provider: ProviderConfig, index: number): HTMLElem
   if (provider.type === "browser") {
     const note = document.createElement("p");
     note.className = "provider-note";
-    note.textContent = "Imports browser bookmarks. Folder path becomes tags. Will request the bookmarks permission on first sync.";
+    note.textContent =
+      "Imports browser bookmarks. Each bookmark is tagged with the names of the folders it lives in " +
+      "(e.g. a bookmark in \"Bookmarks Toolbar / crowdsourcing\" gets the tags \"Bookmarks Toolbar\" and " +
+      "\"crowdsourcing\"). Firefox's native bookmark tags are NOT readable via the extension API — only the " +
+      "folder structure is. To match a folder rule by tag, put the bookmark inside a folder of that name. " +
+      "Requests the bookmarks permission on first sync.";
     return note;
   }
   // static: no config

@@ -9,6 +9,7 @@ Browser extension for [Linkding](https://github.com/sissbruecker/linkding) — d
 - Folder rules: match bookmarks by tag, URL, or title (AND/OR combinations)
 - Incremental sync via Linkding's `modified_since` API
 - Background sync on timer + on New Tab open
+- Import your browser's own bookmarks (folder names become tags)
 - Static demo data mode (no Linkding instance needed)
 - Firefox + Chrome from one codebase
 
@@ -60,7 +61,19 @@ Open the extension options to:
 - Set your Linkding URL and API token
 - Configure the sync interval
 - Toggle static demo data mode
+- Import browser bookmarks (requests the `bookmarks` permission)
 - Define bookmark folders with match rules
+
+### Browser bookmark tags
+
+The browser-bookmarks provider tags each imported bookmark with the **names of the
+folders it lives in** — a bookmark under `Bookmarks Toolbar / crowdsourcing` gets the
+tags `Bookmarks Toolbar` and `crowdsourcing`. To match a folder rule by tag, put the
+bookmark inside a folder of that name.
+
+Firefox's native bookmark tags (the tag field in the Edit Bookmark dialog) are **not**
+readable from an extension — the WebExtension API only exposes the folder structure, so
+only folder names can become tags.
 
 ## Icons
 

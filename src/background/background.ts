@@ -29,7 +29,8 @@ ext.alarms.onAlarm.addListener((alarm) => {
 ext.runtime.onMessage.addListener(
   (message: Message, _sender, sendResponse) => {
     if (message.type === "sync_requested") {
-      sync();
+      // Explicit user-initiated sync: bypass the time-based debounce.
+      sync(true);
       sendResponse({ accepted: true });
     }
     return false;
@@ -48,14 +49,14 @@ async function setupAlarm(): Promise<void> {
 
 // ---- Sync -------------------------------------------------------------------
 
-async function sync(): Promise<void> {
+async function sync(force = false): Promise<void> {
   if (syncing) {
     console.log("Sync already in progress, skipping");
     return;
   }
 
   const now = Date.now();
-  if (now - lastSyncAttempt < MIN_SYNC_INTERVAL_MS) {
+  if (!force && now - lastSyncAttempt < MIN_SYNC_INTERVAL_MS) {
     console.log("Sync debounced, too soon since last attempt");
     return;
   }
