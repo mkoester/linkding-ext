@@ -39,6 +39,7 @@ const shared: Configuration = {
     background: "./src/background/background.ts",
     newtab: "./src/newtab/newtab.ts",
     popup: "./src/popup/popup.ts",
+    sidebar: "./src/sidebar/sidebar.ts",
     options: "./src/options/options.ts",
   },
   output: {
@@ -74,8 +75,13 @@ export default (env: { browser: "chrome" | "firefox" }): Configuration => {
       new CopyPlugin({
         patterns: [
           { from: "src/newtab/newtab.html", to: "newtab/newtab.html" },
+          { from: "src/newtab/newtab.css", to: "newtab/newtab.css" },
           { from: "src/popup/popup.html", to: "popup/popup.html" },
+          { from: "src/popup/popup.css", to: "popup/popup.css" },
+          { from: "src/sidebar/sidebar.html", to: "sidebar/sidebar.html" },
+          { from: "src/sidebar/sidebar.css", to: "sidebar/sidebar.css" },
           { from: "src/options/options.html", to: "options/options.html" },
+          { from: "src/options/options.css", to: "options/options.css" },
           { from: "public/icons", to: "icons" },
           {
             from: `manifests/manifest.${browser}.json`,

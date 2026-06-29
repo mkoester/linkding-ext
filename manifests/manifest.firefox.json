@@ -2,6 +2,14 @@
   "background": {
     "scripts": ["background.js"]
   },
+  "sidebar_action": {
+    "default_title": "Bookmarks+",
+    "default_panel": "sidebar/sidebar.html",
+    "default_icon": {
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
   "browser_specific_settings": {
     "gecko": {
       "id": "bookmarksplus-ext@mirkokoester.de",

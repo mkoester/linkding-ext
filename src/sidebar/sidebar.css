@@ -1,0 +1,90 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+#folders {
+  flex: 1;
+  padding: 0.5rem;
+  overflow-y: auto;
+}
+
+details {
+  margin-bottom: 0.5rem;
+}
+
+summary {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  user-select: none;
+}
+
+ul {
+  list-style: none;
+  padding-left: 0.25rem;
+}
+
+li a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #c8d6e5;
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+li a:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.empty {
+  padding: 0.75rem;
+  color: #888;
+  font-size: 0.85rem;
+}
+
+footer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-top: 1px solid #2a2a4a;
+}
+
+footer button {
+  flex: 1;
+  padding: 0.35rem;
+  background: #2a2a4a;
+  border: none;
+  border-radius: 4px;
+  color: #c8d6e5;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+footer button:hover {
+  background: #3a3a6a;
+}
