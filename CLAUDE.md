@@ -11,7 +11,7 @@
 - `pnpm build` — produces `dist/chrome/` and `dist/firefox/` via webpack
 - Load in Firefox: `about:debugging` → Load Temporary Add-on → `dist/firefox/manifest.json`
 - Load in Chrome: `chrome://extensions` → Enable developer mode → Load unpacked → `dist/chrome/`
-- **Version bumping:** increment the patch version in `manifests/manifest.shared.json` (and both browser manifests) by 1 whenever building something the user should test in the browser (early development convention)
+- **Version bumping:** increment the patch version in `package.json` by 1 whenever building something the user should test in the browser (early development convention). `package.json` is the single source of truth — webpack injects it into both browser manifests at build time, so don't edit version in the manifests.
 
 ## Architecture decisions (already made, don't revisit)
 
@@ -106,7 +106,7 @@ src/
   options/options.html/css
 
 manifests/
-  manifest.shared.json       — everything common to both browsers; source of truth for version number
+  manifest.shared.json       — everything common to both browsers (no version field; injected from package.json at build)
   manifest.chrome.json       — Chrome-exclusive only: background.service_worker + unlimitedStorage
   manifest.firefox.json      — Firefox-exclusive only: background.scripts + browser_specific_settings
   (build deep-merges shared + browser file; arrays are unioned — see webpack.config.ts)

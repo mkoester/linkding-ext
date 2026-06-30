@@ -9,38 +9,13 @@
   <div id="app">
     <h1>Bookmarks+</h1>
 
-    <section>
-      <h2>Providers</h2>
-      <p class="hint">Bookmarks are fetched from one or more providers and merged into a single collection.</p>
-      <div id="provider-list"></div>
-      <div class="add-provider-row">
-        <select id="provider-type-select">
-          <option value="static">Static (built-in demo data)</option>
-          <option value="json">JSON (paste your own)</option>
-          <option value="browser">Browser bookmarks</option>
-          <option value="linkding">Linkding</option>
-        </select>
-        <button id="add-provider">+ Add provider</button>
-      </div>
-    </section>
+    <nav id="tab-bar" class="tab-bar"></nav>
+    <div id="tab-panels"></div>
 
-    <section>
-      <h2>Sync</h2>
-      <label>
-        Sync interval (minutes)
-        <input type="number" id="sync-interval" min="1" max="60" value="15" />
-      </label>
-    </section>
-
-    <section>
-      <h2>Folders</h2>
-      <p class="hint">Folders are defined as rules that match bookmarks by tag, URL, or title.</p>
-      <div id="folder-list"></div>
-      <button id="add-folder">+ Add folder</button>
-    </section>
-
-    <div id="status"></div>
-    <button id="save">Save settings</button>
+    <div class="footer">
+      <div id="status"></div>
+      <button id="save">Save settings</button>
+    </div>
   </div>
   <script src="../options.js"></script>
 </body>

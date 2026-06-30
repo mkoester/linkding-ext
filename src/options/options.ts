@@ -1,6 +1,7 @@
 import ext from "@shared/browser";
-import { getFolders, getSettings, saveFolders, saveSettings } from "@shared/storage";
+import { getBookmarks, getFolders, getSettings, saveFolders, saveSettings } from "@shared/storage";
 import type {
+  BookmarkMap,
   Folder,
   FolderRules,
   LinkdingProviderConfig,
@@ -13,37 +14,307 @@ import type {
 
 let folders: Folder[] = [];
 let providers: ProviderConfig[] = [];
+let bookmarks: BookmarkMap = {};
+let syncIntervalMinutes = 15;
+let grantedHostOrigins: string[] = [];
+let activeTabId = "overview";
+let tagSort: { key: "tag" | "count"; dir: "asc" | "desc" } = { key: "count", dir: "desc" };
 
 async function init(): Promise<void> {
-  const [settings, savedFolders] = await Promise.all([
+  const [settings, savedFolders, savedBookmarks] = await Promise.all([
     getSettings(),
     getFolders(),
+    getBookmarks(),
   ]);
 
   folders = savedFolders;
   providers = settings.providers;
+  bookmarks = savedBookmarks;
+  syncIntervalMinutes = settings.syncIntervalMinutes;
 
-  (document.getElementById("sync-interval") as HTMLInputElement).value =
-    String(settings.syncIntervalMinutes);
-
-  renderProviderList();
-  renderFolderList();
+  await loadGrantedOrigins();
 
   document.getElementById("save")?.addEventListener("click", save);
-  document.getElementById("add-provider")?.addEventListener("click", addProvider);
-  document.getElementById("add-folder")?.addEventListener("click", addFolder);
+  renderTabs();
+}
+
+// ---- Tabs -------------------------------------------------------------------
+
+interface TabDef {
+  id: string;
+  label: string;
+  render: () => HTMLElement;
+}
+
+function buildTabs(): TabDef[] {
+  const tabs: TabDef[] = [
+    { id: "overview", label: "Overview", render: renderOverviewPanel },
+    { id: "folders", label: "Folders", render: renderFoldersPanel },
+  ];
+
+  providers.forEach((provider) => {
+    tabs.push({
+      id: `provider:${provider.id}`,
+      label: providerTabLabel(provider),
+      render: () => renderProviderPanel(provider.id),
+    });
+  });
+
+  if (grantedHostOrigins.length > 0) {
+    tabs.push({ id: "permissions", label: "Permissions", render: renderPermissionsPanel });
+  }
+
+  return tabs;
+}
+
+function renderTabs(): void {
+  const tabs = buildTabs();
+  if (!tabs.some((t) => t.id === activeTabId)) {
+    activeTabId = "overview";
+  }
+
+  const bar = document.getElementById("tab-bar")!;
+  bar.innerHTML = "";
+  tabs.forEach((tab) => {
+    const btn = document.createElement("button");
+    btn.className = tab.id === activeTabId ? "tab active" : "tab";
+    btn.textContent = tab.label;
+    btn.addEventListener("click", () => {
+      activeTabId = tab.id;
+      renderTabs();
+    });
+    bar.appendChild(btn);
+  });
+
+  const panels = document.getElementById("tab-panels")!;
+  panels.innerHTML = "";
+  panels.appendChild(tabs.find((t) => t.id === activeTabId)!.render());
+}
+
+// ---- Overview panel ---------------------------------------------------------
+
+function renderOverviewPanel(): HTMLElement {
+  const root = document.createElement("div");
+
+  // Providers
+  const providerSection = document.createElement("section");
+  providerSection.appendChild(sectionHeading("Providers"));
+  providerSection.appendChild(
+    hint("Bookmarks are fetched from one or more providers and merged into a single collection.")
+  );
+
+  providers.forEach((provider, index) => {
+    providerSection.appendChild(renderProviderEditor(provider, index));
+  });
+
+  const addRow = document.createElement("div");
+  addRow.className = "add-provider-row";
+  const select = document.createElement("select");
+  ([
+    ["static", "Static (built-in demo data)"],
+    ["json", "JSON (paste your own)"],
+    ["browser", "Browser bookmarks"],
+    ["linkding", "Linkding"],
+  ] as Array<[ProviderType, string]>).forEach(([value, label]) => {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = label;
+    select.appendChild(opt);
+  });
+  const addBtn = document.createElement("button");
+  addBtn.textContent = "+ Add provider";
+  addBtn.addEventListener("click", () => addProvider(select.value as ProviderType));
+  addRow.appendChild(select);
+  addRow.appendChild(addBtn);
+  providerSection.appendChild(addRow);
+
+  root.appendChild(providerSection);
+
+  // Sync
+  const syncSection = document.createElement("section");
+  syncSection.appendChild(sectionHeading("Sync"));
+  const intervalLabel = document.createElement("label");
+  intervalLabel.textContent = "Sync interval (minutes)";
+  const intervalInput = document.createElement("input");
+  intervalInput.type = "number";
+  intervalInput.min = "1";
+  intervalInput.max = "60";
+  intervalInput.value = String(syncIntervalMinutes);
+  intervalInput.addEventListener("input", () => {
+    syncIntervalMinutes = parseInt(intervalInput.value, 10) || syncIntervalMinutes;
+  });
+  intervalLabel.appendChild(intervalInput);
+  syncSection.appendChild(intervalLabel);
+  root.appendChild(syncSection);
+
+  return root;
+}
+
+// ---- Folders panel ----------------------------------------------------------
+
+function renderFoldersPanel(): HTMLElement {
+  const section = document.createElement("section");
+  section.appendChild(sectionHeading("Folders"));
+  section.appendChild(
+    hint("Folders are defined as rules that match bookmarks by tag, URL, or title.")
+  );
+
+  folders.forEach((folder, index) => {
+    section.appendChild(renderFolderEditor(folder, index));
+  });
+
+  const addFolderBtn = document.createElement("button");
+  addFolderBtn.textContent = "+ Add folder";
+  addFolderBtn.addEventListener("click", addFolder);
+  section.appendChild(addFolderBtn);
+
+  return section;
+}
+
+// ---- Per-provider panel -----------------------------------------------------
+
+function renderProviderPanel(providerId: string): HTMLElement {
+  const section = document.createElement("section");
+  const index = providers.findIndex((p) => p.id === providerId);
+  if (index === -1) {
+    section.appendChild(hint("This provider no longer exists."));
+    return section;
+  }
+
+  const provider = providers[index];
+  section.appendChild(sectionHeading(providerTabLabel(provider)));
+  section.appendChild(renderProviderEditor(provider, index));
+
+  section.appendChild(sectionHeading("Tags"));
+  const tags = sortTagCounts(providerTagCounts(provider.id));
+  if (tags.length === 0) {
+    section.appendChild(
+      hint("No synced bookmarks for this provider yet — save settings to sync, then reopen.")
+    );
+  } else {
+    section.appendChild(renderTagTable(tags));
+  }
+
+  return section;
+}
+
+function providerTabLabel(provider: ProviderConfig): string {
+  const base = provider.name || provider.type;
+  if (provider.type === "linkding" && provider.username) {
+    return `${base} (${provider.username})`;
+  }
+  return base;
+}
+
+// ---- Per-provider tag table -------------------------------------------------
+
+function providerTagCounts(providerId: string): Array<{ tag: string; count: number }> {
+  const prefix = `${providerId}:`;
+  const counts = new Map<string, number>();
+  for (const [id, bm] of Object.entries(bookmarks)) {
+    if (!id.startsWith(prefix)) continue;
+    for (const tag of bm.tag_names) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()].map(([tag, count]) => ({ tag, count }));
+}
+
+function sortTagCounts(
+  rows: Array<{ tag: string; count: number }>
+): Array<{ tag: string; count: number }> {
+  const factor = tagSort.dir === "asc" ? 1 : -1;
+  return rows.sort((a, b) => {
+    if (tagSort.key === "tag") {
+      return a.tag.localeCompare(b.tag) * factor;
+    }
+    // count: primary by count, stable tiebreak by tag name (ascending)
+    if (a.count !== b.count) return (a.count - b.count) * factor;
+    return a.tag.localeCompare(b.tag);
+  });
+}
+
+function renderTagTable(rows: Array<{ tag: string; count: number }>): HTMLElement {
+  const table = document.createElement("table");
+  table.className = "tag-table";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  headerRow.appendChild(sortableTh("Tag", "tag"));
+  headerRow.appendChild(sortableTh("Count", "count"));
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  rows.forEach(({ tag, count }) => {
+    const tr = document.createElement("tr");
+    const tagTd = document.createElement("td");
+    tagTd.textContent = tag;
+    const countTd = document.createElement("td");
+    countTd.textContent = String(count);
+    tr.appendChild(tagTd);
+    tr.appendChild(countTd);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  return table;
+}
+
+function sortableTh(label: string, key: "tag" | "count"): HTMLElement {
+  const th = document.createElement("th");
+  const active = tagSort.key === key;
+  const arrow = active ? (tagSort.dir === "asc" ? " ▲" : " ▼") : "";
+  th.textContent = label + arrow;
+  th.className = active ? "sortable active" : "sortable";
+  th.addEventListener("click", () => {
+    tagSort = active
+      ? { key, dir: tagSort.dir === "asc" ? "desc" : "asc" }
+      : { key, dir: key === "tag" ? "asc" : "desc" };
+    renderTabs();
+  });
+  return th;
+}
+
+// ---- Permissions panel ------------------------------------------------------
+
+function renderPermissionsPanel(): HTMLElement {
+  const section = document.createElement("section");
+  section.appendChild(sectionHeading("Granted host permissions"));
+  section.appendChild(
+    hint(
+      "These per-host permissions let the extension read each provider's API across origins. " +
+      "Revoking one stops that provider from syncing until you save its settings again."
+    )
+  );
+
+  grantedHostOrigins.forEach((origin) => {
+    const row = document.createElement("div");
+    row.className = "perm-row";
+
+    const code = document.createElement("code");
+    code.textContent = origin;
+
+    const revokeBtn = document.createElement("button");
+    revokeBtn.textContent = "Revoke";
+    revokeBtn.addEventListener("click", async () => {
+      await ext.permissions.remove({ origins: [origin] });
+      await loadGrantedOrigins();
+      renderTabs();
+    });
+
+    row.appendChild(code);
+    row.appendChild(revokeBtn);
+    section.appendChild(row);
+  });
+
+  return section;
 }
 
 // ---- Save -------------------------------------------------------------------
 
 async function save(): Promise<void> {
-  const settings: Settings = {
-    syncIntervalMinutes: parseInt(
-      (document.getElementById("sync-interval") as HTMLInputElement).value,
-      10
-    ),
-    providers,
-  };
+  const settings: Settings = { syncIntervalMinutes, providers };
 
   // Permission request must be the first await — user gesture activation expires after the first
   // async operation in Firefox. Bundle the bookmarks permission (browser provider) and the host
@@ -67,6 +338,10 @@ async function save(): Promise<void> {
     await ext.runtime.sendMessage({ type: "sync_requested" });
   }
 
+  // Refresh the granted-host list so the Permissions tab appears/updates after a grant.
+  await loadGrantedOrigins();
+  renderTabs();
+
   const status = document.getElementById("status")!;
   status.textContent = permissionsGranted
     ? "Saved."
@@ -74,32 +349,7 @@ async function save(): Promise<void> {
   setTimeout(() => { status.textContent = ""; }, 4000);
 }
 
-// Origin match patterns ("https://host/*") for each configured linkding provider, so we can
-// request host access for exactly those hosts (a subset of the manifest's <all_urls>) instead
-// of making the user enable all-sites access by hand. Invalid/blank URLs are skipped.
-function linkdingOrigins(providerList: ProviderConfig[]): string[] {
-  const origins = new Set<string>();
-  for (const provider of providerList) {
-    if (provider.type === "linkding" && provider.url) {
-      try {
-        origins.add(`${new URL(provider.url).origin}/*`);
-      } catch {
-        // ignore invalid URL; user is still editing
-      }
-    }
-  }
-  return [...origins];
-}
-
-// ---- Provider list ----------------------------------------------------------
-
-function renderProviderList(): void {
-  const container = document.getElementById("provider-list")!;
-  container.innerHTML = "";
-  providers.forEach((provider, index) => {
-    container.appendChild(renderProviderEditor(provider, index));
-  });
-}
+// ---- Provider editors -------------------------------------------------------
 
 function renderProviderEditor(provider: ProviderConfig, index: number): HTMLElement {
   const div = document.createElement("div");
@@ -124,7 +374,7 @@ function renderProviderEditor(provider: ProviderConfig, index: number): HTMLElem
   removeBtn.textContent = "Remove";
   removeBtn.addEventListener("click", () => {
     providers.splice(index, 1);
-    renderProviderList();
+    renderTabs();
   });
 
   header.appendChild(nameInput);
@@ -156,7 +406,15 @@ function renderProviderConfig(provider: ProviderConfig, index: number): HTMLElem
       "Requests the bookmarks permission on first sync.";
     return note;
   }
-  // static: no config
+  if (provider.type === "static") {
+    const note = document.createElement("p");
+    note.className = "provider-note";
+    note.textContent =
+      "A predefined set of demo bookmarks bundled with the extension, meant for trying things out " +
+      "before you connect a real provider. Nothing to configure here — add a Linkding, JSON, or " +
+      "browser-bookmarks provider when you're ready to use your own data.";
+    return note;
+  }
   return null;
 }
 
@@ -222,10 +480,7 @@ function renderJsonConfig(provider: JsonProviderConfig, index: number): HTMLElem
   return div;
 }
 
-function addProvider(): void {
-  const select = document.getElementById("provider-type-select") as HTMLSelectElement;
-  const type = select.value as ProviderType;
-
+function addProvider(type: ProviderType): void {
   const base = { id: crypto.randomUUID(), name: type, type };
 
   let config: ProviderConfig;
@@ -237,18 +492,10 @@ function addProvider(): void {
   }
 
   providers.push(config);
-  renderProviderList();
+  renderTabs();
 }
 
-// ---- Folder list rendering --------------------------------------------------
-
-function renderFolderList(): void {
-  const container = document.getElementById("folder-list")!;
-  container.innerHTML = "";
-  folders.forEach((folder, index) => {
-    container.appendChild(renderFolderEditor(folder, index));
-  });
-}
+// ---- Folder editors ---------------------------------------------------------
 
 function renderFolderEditor(folder: Folder, index: number): HTMLElement {
   const div = document.createElement("div");
@@ -281,7 +528,7 @@ function renderFolderEditor(folder: Folder, index: number): HTMLElement {
   removeBtn.textContent = "Remove";
   removeBtn.addEventListener("click", () => {
     folders.splice(index, 1);
-    renderFolderList();
+    renderTabs();
   });
 
   header.appendChild(nameInput);
@@ -300,7 +547,7 @@ function renderFolderEditor(folder: Folder, index: number): HTMLElement {
   addCondBtn.textContent = "+ Add condition";
   addCondBtn.addEventListener("click", () => {
     folders[index].rules.conditions.push({ type: "tag", value: "" });
-    renderFolderList();
+    renderTabs();
   });
 
   div.appendChild(conditionsDiv);
@@ -346,7 +593,7 @@ function renderConditionEditor(
   removeBtn.textContent = "×";
   removeBtn.addEventListener("click", () => {
     folders[folderIndex].rules.conditions.splice(conditionIndex, 1);
-    renderFolderList();
+    renderTabs();
   });
 
   div.appendChild(typeSelect);
@@ -354,8 +601,6 @@ function renderConditionEditor(
   div.appendChild(removeBtn);
   return div;
 }
-
-// ---- Add folder -------------------------------------------------------------
 
 function addFolder(): void {
   const newFolder: Folder = {
@@ -365,7 +610,52 @@ function addFolder(): void {
     bookmark_ids: [],
   };
   folders.push(newFolder);
-  renderFolderList();
+  renderTabs();
+}
+
+// ---- Permissions helpers ----------------------------------------------------
+
+async function loadGrantedOrigins(): Promise<void> {
+  const all = await ext.permissions.getAll();
+  grantedHostOrigins = (all.origins ?? []).filter(isSpecificHost);
+}
+
+// A concrete single host (e.g. "https://links.example.com/*"), as opposed to a broad wildcard
+// like "<all_urls>" or "*://*/*" — only the former are worth listing/revoking here.
+function isSpecificHost(origin: string): boolean {
+  return origin !== "<all_urls>" && !origin.includes("://*");
+}
+
+// Origin match patterns ("https://host/*") for each configured linkding provider, so we can
+// request host access for exactly those hosts (a subset of the manifest's <all_urls>) instead
+// of making the user enable all-sites access by hand. Invalid/blank URLs are skipped.
+function linkdingOrigins(providerList: ProviderConfig[]): string[] {
+  const origins = new Set<string>();
+  for (const provider of providerList) {
+    if (provider.type === "linkding" && provider.url) {
+      try {
+        origins.add(`${new URL(provider.url).origin}/*`);
+      } catch {
+        // ignore invalid URL; user is still editing
+      }
+    }
+  }
+  return [...origins];
+}
+
+// ---- Small DOM helpers ------------------------------------------------------
+
+function sectionHeading(text: string): HTMLElement {
+  const h2 = document.createElement("h2");
+  h2.textContent = text;
+  return h2;
+}
+
+function hint(text: string): HTMLElement {
+  const p = document.createElement("p");
+  p.className = "hint";
+  p.textContent = text;
+  return p;
 }
 
 // ---- Boot -------------------------------------------------------------------

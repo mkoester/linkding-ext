@@ -1,6 +1,6 @@
 {
   "name": "linkding-ext",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "Browser extension for Linkding bookmarks",
   "scripts": {
     "dev:chrome": "webpack --config webpack.config.ts --env browser=chrome --watch",
