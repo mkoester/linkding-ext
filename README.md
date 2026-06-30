@@ -131,4 +131,15 @@ only folder names can become tags.
 
 ## Icons
 
-Add `icon48.png` and `icon128.png` to `public/icons/` before building.
+The icon source is [`public/icons/icon.svg`](public/icons/icon.svg). Re-rasterise the
+PNGs the manifest references with:
+
+```bash
+rsvg-convert -w 48  public/icons/icon.svg -o public/icons/icon48.png
+rsvg-convert -w 128 public/icons/icon.svg -o public/icons/icon128.png
+```
+
+## License
+
+[MIT](LICENSE) © Mirko K. — free for any use, including commercial, with
+modification and redistribution permitted.

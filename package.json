@@ -2,6 +2,8 @@
   "name": "linkding-ext",
   "version": "1.0.0",
   "description": "Browser extension for Linkding bookmarks",
+  "license": "MIT",
+  "author": "Mirko K.",
   "scripts": {
     "dev:chrome": "webpack --config webpack.config.ts --env target=chrome --watch",
     "dev:chrome-newtab": "webpack --config webpack.config.ts --env target=chrome-newtab --watch",
