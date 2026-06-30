@@ -2,16 +2,17 @@
 
 ## What this is
 
-**Bookmarks+** — a browser extension that replaces the New Tab page with a folder-based bookmark launcher, with a toolbar popup for quick access. Supports multiple bookmark sources (providers). TypeScript, targets Firefox and Chrome from one codebase. Built iteratively with Claude starting 2026-06-22.
+**Bookmarks+** — a browser extension that surfaces your bookmarks as a folder-based launcher. Two **surfaces** are always available (static manifest features, no runtime toggle): a toolbar-icon **popup** (`action.default_popup`) and a **sidebar / side panel** (Firefox `sidebar_action`, Chrome `side_panel`). A **New Tab** replacement is offered via `chrome_url_overrides.newtab`, but it's **static** — it can't be registered/unregistered at runtime (no API), and neither browser lets an override page redirect back to the native new tab (Firefox throws "Access denied" on about:home, Chromium shows about:blank#blocked). So there is no in-extension toggle; `newtab.ts` always renders the launcher when it runs. Whether it runs is the **browser's** call. Because only Firefox gives the user a clean revert (Settings → Home) while Chromium does not, the new-tab override is split per **build target** (see Build & tooling): Firefox has it; the standard Chromium build omits it (native new tab untouched); a third `chrome-newtab` target ships it as a separately-named **"Bookmarks+ (new tab edition)"**. On first install, `background.ts` opens `onboarding/onboarding.html` (a welcome page nudging the user to pin — no API exists to pin programmatically). None of the surfaces need a runtime permission. (Chrome `unlimitedStorage` is a required permission — Chromium rejects it as optional.) Supports multiple bookmark sources (providers). TypeScript, built from one codebase. Built iteratively with Claude starting 2026-06-22.
 
 ## Build & tooling
 
 - **Package manager: pnpm** (not npm — `package-lock.json` is gitignored)
 - `pnpm type-check` — `tsc --noEmit`, should be clean
-- `pnpm build` — produces `dist/chrome/` and `dist/firefox/` via webpack
+- `pnpm build` — builds all three targets via webpack (see below)
+- **Build targets** (webpack `--env target=…`, output `dist/<target>/`): `firefox` (shared + firefox manifests; has new-tab override), `chrome` (shared + chrome; NO new-tab override), `chrome-newtab` (shared + chrome + chrome-newtab overlay; new-tab override + renamed "Bookmarks+ (new tab edition)"). `TARGET_MANIFESTS` in `webpack.config.ts` lists the manifest files merged (in order) per target. Bundled JS is identical across targets — only the manifest differs.
 - Load in Firefox: `about:debugging` → Load Temporary Add-on → `dist/firefox/manifest.json`
-- Load in Chrome: `chrome://extensions` → Enable developer mode → Load unpacked → `dist/chrome/`
-- **Version bumping:** increment the patch version in `package.json` by 1 whenever building something the user should test in the browser (early development convention). `package.json` is the single source of truth — webpack injects it into both browser manifests at build time, so don't edit version in the manifests.
+- Load in Chrome/Chromium: `chrome://extensions` → Enable developer mode → Load unpacked → `dist/chrome/` (or `dist/chrome-newtab/`)
+- **Version bumping:** increment the patch version in `package.json` by 1 whenever building something the user should test in the browser (early development convention). `package.json` is the single source of truth — webpack injects it into every target's manifest at build time, so don't edit version in the manifests.
 
 ## Architecture decisions (already made, don't revisit)
 
@@ -106,10 +107,11 @@ src/
   options/options.html/css
 
 manifests/
-  manifest.shared.json       — everything common to both browsers (no version field; injected from package.json at build)
-  manifest.chrome.json       — Chrome-exclusive only: background.service_worker + unlimitedStorage
-  manifest.firefox.json      — Firefox-exclusive only: background.scripts + browser_specific_settings
-  (build deep-merges shared + browser file; arrays are unioned — see webpack.config.ts)
+  manifest.shared.json       — common to all targets (no version field; injected from package.json at build)
+  manifest.chrome.json       — Chrome-only: background.service_worker + favicon/sidePanel/unlimitedStorage
+  manifest.firefox.json      — Firefox-only: background.scripts + browser_specific_settings + chrome_url_overrides.newtab
+  manifest.chrome-newtab.json — overlay for the chrome-newtab target: adds newtab override + renames to "(new tab edition)"
+  (build deep-merges a target's manifest list in order; arrays are unioned — see TARGET_MANIFESTS in webpack.config.ts)
 
 public/icons/
   icon48.png / icon128.png   — placeholder blue-circle icons

@@ -12,9 +12,29 @@ body {
 }
 
 #header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 1.5rem;
   font-size: 0.85rem;
   color: #888;
+}
+
+#open-settings {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+}
+
+#open-settings:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 #folders {

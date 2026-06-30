@@ -12,6 +12,8 @@ import type { Bookmark, BookmarkMap, Folder, Message } from "@shared/types";
 let lastRenderKey = "";
 
 async function init(): Promise<void> {
+  registerForToggle();
+
   await render();
   requestSync();
   listenForChanges();
@@ -19,6 +21,22 @@ async function init(): Promise<void> {
   document.getElementById("open-options")?.addEventListener("click", () => {
     ext.runtime.openOptionsPage();
   });
+}
+
+// Chromium only: register this panel (keyed by window) with the background so the keyboard
+// shortcut can toggle it shut — Chrome can't reliably close a global side panel from the API, but
+// the panel can close itself with window.close(). Firefox's sidebar toggles natively, so skip it.
+async function registerForToggle(): Promise<void> {
+  if (typeof chrome === "undefined" || !chrome.sidePanel) return;
+  try {
+    const win = await ext.windows.getCurrent();
+    const port = ext.runtime.connect({ name: `sidepanel:${win.id ?? -1}` });
+    port.onMessage.addListener((msg: { type?: string }) => {
+      if (msg?.type === "close") window.close();
+    });
+  } catch {
+    // best-effort; if this fails, the shortcut just always opens (never toggles closed)
+  }
 }
 
 // ---- Render -----------------------------------------------------------------

@@ -1,0 +1,96 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.card {
+  background: #22223a;
+  border: 1px solid #3a3a6a;
+  border-radius: 10px;
+  padding: 2rem;
+  max-width: 520px;
+  width: 100%;
+}
+
+h1 {
+  font-size: 1.4rem;
+  color: #fff;
+  margin-bottom: 1.5rem;
+}
+
+h2 {
+  font-size: 0.95rem;
+  color: #c8d6e5;
+  margin-bottom: 0.6rem;
+}
+
+section {
+  margin-bottom: 1.5rem;
+}
+
+.pin {
+  background: #1a1a2e;
+  border: 1px solid #2a7acc;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+p, li {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #cfcfe0;
+}
+
+ol, ul {
+  margin: 0.5rem 0 0 1.2rem;
+}
+
+li {
+  margin-bottom: 0.3rem;
+}
+
+.muted {
+  color: #888;
+  font-size: 0.8rem;
+  margin-top: 0.6rem;
+}
+
+#newtab-body p {
+  margin-bottom: 0.6rem;
+}
+
+.warn {
+  border-left: 2px solid #2a7acc;
+  padding-left: 0.7rem;
+  color: #cfcfe0;
+}
+
+.card a:not(.cta) {
+  color: #7eb8f7;
+}
+
+.cta {
+  display: inline-block;
+  background: #1a5a9a;
+  color: #fff;
+  text-decoration: none;
+  padding: 0.5rem 1.4rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.cta:hover {
+  background: #2a7acc;
+}

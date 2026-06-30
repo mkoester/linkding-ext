@@ -5,7 +5,10 @@ import { STATIC_FOLDERS } from "./data/static";
 
 export async function getSettings(): Promise<Settings> {
   const result = await ext.storage.local.get("settings");
-  return (result.settings as Settings) ?? DEFAULT_SETTINGS;
+  const stored = result.settings as Partial<Settings> | undefined;
+  if (!stored) return DEFAULT_SETTINGS;
+  // Backfill fields added after this install first saved its settings.
+  return { ...DEFAULT_SETTINGS, ...stored };
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {

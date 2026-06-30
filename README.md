@@ -25,20 +25,33 @@ pnpm run dev:chrome
 pnpm run dev:firefox
 ```
 
-Output lands in `dist/chrome/` or `dist/firefox/`.
+Output lands in `dist/<target>/`.
+
+### Build targets
+
+There are three targets, differing only in their manifest:
+
+| Target | Output | New Tab override? | Name |
+|---|---|---|---|
+| `firefox` | `dist/firefox/` | yes (Firefox lets the user toggle it in Settings → Home) | Bookmarks+ |
+| `chrome` | `dist/chrome/` | **no** — leaves Chromium's native new tab alone | Bookmarks+ |
+| `chrome-newtab` | `dist/chrome-newtab/` | yes | **Bookmarks+ (new tab edition)** |
+
+Why two Chromium builds: a `chrome_url_overrides.newtab` override is static and can't be toggled at runtime, and Chromium offers no per-extension switch to revert to the native new tab. So Chromium users pick the build they want — plain, or the new-tab edition.
 
 ### Load in browser
 
-**Chrome**: `chrome://extensions` → Enable developer mode → Load unpacked → select `dist/chrome/`
+**Chrome / Chromium**: `chrome://extensions` → Enable developer mode → Load unpacked → select `dist/chrome/` (or `dist/chrome-newtab/`)
 
 **Firefox**: `about:debugging` → This Firefox → Load Temporary Add-on → select `dist/firefox/manifest.json`
 
 ## Build
 
 ```bash
-pnpm build           # both browsers
-pnpm run build:chrome
+pnpm build                 # all three targets
 pnpm run build:firefox
+pnpm run build:chrome
+pnpm run build:chrome-newtab
 ```
 
 ### Versioning

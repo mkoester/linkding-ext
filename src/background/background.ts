@@ -12,10 +12,16 @@ let lastSyncAttempt = 0;
 
 // ---- Setup ------------------------------------------------------------------
 
-ext.runtime.onInstalled.addListener(async () => {
+ext.runtime.onInstalled.addListener(async (details) => {
   console.log("Extension installed, running initial sync");
   await setupAlarm();
   await sync();
+
+  // First-time install only: show a welcome page that nudges the user to pin the extension
+  // (browsers offer no API to pin programmatically).
+  if (details.reason === "install") {
+    ext.tabs.create({ url: ext.runtime.getURL("onboarding/onboarding.html") });
+  }
 });
 
 ext.alarms.onAlarm.addListener((alarm) => {
@@ -23,6 +29,39 @@ ext.alarms.onAlarm.addListener((alarm) => {
     sync();
   }
 });
+
+// Chromium-only: keyboard shortcut to TOGGLE the side panel (the command is declared only in the
+// Chrome manifest; Firefox toggles its sidebar via the built-in _execute_sidebar_action command).
+//
+// Chrome has no reliable close() for a global panel, so we track which windows currently have the
+// panel open via a connection port the panel opens on load (and that disconnects when it closes).
+// Toggle = if open, ask the panel to close itself (window.close()); else open it. open() is called
+// directly in the handler so the user gesture isn't lost to an await.
+const openSidePanels = new Map<number, chrome.runtime.Port>();
+
+if (typeof chrome !== "undefined" && chrome.runtime?.onConnect) {
+  chrome.runtime.onConnect.addListener((port) => {
+    const match = /^sidepanel:(-?\d+)$/.exec(port.name);
+    if (!match) return;
+    const windowId = Number(match[1]);
+    openSidePanels.set(windowId, port);
+    port.onDisconnect.addListener(() => {
+      if (openSidePanels.get(windowId) === port) openSidePanels.delete(windowId);
+    });
+  });
+}
+
+if (typeof chrome !== "undefined" && chrome.commands && chrome.sidePanel) {
+  chrome.commands.onCommand.addListener((command, tab) => {
+    if (command !== "open-side-panel" || tab?.windowId == null) return;
+    const open = openSidePanels.get(tab.windowId);
+    if (open) {
+      open.postMessage({ type: "close" });
+    } else {
+      chrome.sidePanel.open({ windowId: tab.windowId });
+    }
+  });
+}
 
 // ---- Message handling -------------------------------------------------------
 

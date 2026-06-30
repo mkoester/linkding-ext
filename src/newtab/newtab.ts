@@ -9,7 +9,15 @@ let lastRenderKey = "";
 
 // ---- Init -------------------------------------------------------------------
 
+// The new-tab override is always declared, but whether this page is shown at all is the browser's
+// call: Firefox/Chromium ask the user to keep or revert the extension's new-tab control (browsers
+// block any script-side redirect back to the native page — about:home/about:blank are denied). So
+// if we're running here, the user opted in — just render the launcher.
 async function init(): Promise<void> {
+  document.getElementById("open-settings")?.addEventListener("click", () => {
+    ext.runtime.openOptionsPage();
+  });
+
   await render();
   requestSync();
   listenForChanges();

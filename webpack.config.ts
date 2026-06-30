@@ -8,9 +8,22 @@ import type { Configuration } from "webpack";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const sharedManifest = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, "manifests/manifest.shared.json"), "utf-8")
-);
+function loadJson(relPath: string): Record<string, unknown> {
+  return JSON.parse(fs.readFileSync(path.resolve(__dirname, relPath), "utf-8"));
+}
+
+// Build targets → the manifest files merged (in order) to produce that target's manifest.json.
+// The new-tab override lives per-target (Firefox + the Chromium "new tab edition"); the standard
+// Chromium build deliberately omits it so it leaves the native new tab alone.
+const TARGET_MANIFESTS: Record<string, string[]> = {
+  firefox: ["manifests/manifest.shared.json", "manifests/manifest.firefox.json"],
+  chrome: ["manifests/manifest.shared.json", "manifests/manifest.chrome.json"],
+  "chrome-newtab": [
+    "manifests/manifest.shared.json",
+    "manifests/manifest.chrome.json",
+    "manifests/manifest.chrome-newtab.json",
+  ],
+};
 
 // package.json is the single source of truth for the version; it's injected into the manifest
 // at build time so there's no second number to keep in sync.
@@ -47,6 +60,7 @@ const shared: Configuration = {
     popup: "./src/popup/popup.ts",
     sidebar: "./src/sidebar/sidebar.ts",
     options: "./src/options/options.ts",
+    onboarding: "./src/onboarding/onboarding.ts",
   },
   output: {
     clean: true,
@@ -68,9 +82,22 @@ const shared: Configuration = {
   },
 };
 
-export default (env: { browser: "chrome" | "firefox" }): Configuration => {
-  const browser = env?.browser ?? "chrome";
-  const outDir = path.resolve(__dirname, `dist/${browser}`);
+export default (env: { target?: string; browser?: string }): Configuration => {
+  // `target` is preferred; `browser` is accepted for backwards compatibility.
+  const target = env?.target ?? env?.browser ?? "chrome";
+  const manifestFiles = TARGET_MANIFESTS[target];
+  if (!manifestFiles) {
+    throw new Error(`Unknown build target "${target}". Known: ${Object.keys(TARGET_MANIFESTS).join(", ")}`);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mergedManifest = manifestFiles.reduce<any>(
+    (acc, file) => deepMergeManifests(acc, loadJson(file)),
+    {}
+  );
+  mergedManifest.version = pkg.version;
+
+  const outDir = path.resolve(__dirname, `dist/${target}`);
 
   return merge(shared, {
     output: {
@@ -88,15 +115,15 @@ export default (env: { browser: "chrome" | "firefox" }): Configuration => {
           { from: "src/sidebar/sidebar.css", to: "sidebar/sidebar.css" },
           { from: "src/options/options.html", to: "options/options.html" },
           { from: "src/options/options.css", to: "options/options.css" },
+          { from: "src/onboarding/onboarding.html", to: "onboarding/onboarding.html" },
+          { from: "src/onboarding/onboarding.css", to: "onboarding/onboarding.css" },
           { from: "public/icons", to: "icons" },
           {
-            from: `manifests/manifest.${browser}.json`,
+            // Source is irrelevant — we emit the precomputed merged manifest; keep a real file as `from`.
+            from: "manifests/manifest.shared.json",
             to: "manifest.json",
-            transform(content: Buffer) {
-              const browserManifest = JSON.parse(content.toString());
-              const merged = deepMergeManifests(sharedManifest, browserManifest);
-              merged.version = pkg.version;
-              return JSON.stringify(merged, null, 2);
+            transform() {
+              return JSON.stringify(mergedManifest, null, 2);
             },
           },
         ],

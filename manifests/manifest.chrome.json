@@ -1,8 +1,16 @@
 {
-  "permissions": ["favicon", "sidePanel"],
-  "optional_permissions": ["unlimitedStorage"],
+  "permissions": ["favicon", "sidePanel", "unlimitedStorage"],
   "side_panel": {
     "default_path": "sidebar/sidebar.html"
+  },
+  "commands": {
+    "open-side-panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Open the Bookmarks+ side panel"
+    }
   },
   "background": {
     "service_worker": "background.js"

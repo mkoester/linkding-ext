@@ -154,6 +154,18 @@ function renderOverviewPanel(): HTMLElement {
   syncSection.appendChild(intervalLabel);
   root.appendChild(syncSection);
 
+  // New Tab page (informational — the browser, not the extension, controls whether it's used)
+  const newTabSection = document.createElement("section");
+  newTabSection.appendChild(sectionHeading("New Tab page"));
+  newTabSection.appendChild(
+    hint(
+      "Bookmarks+ can replace your New Tab page. Your browser controls this, not this setting: " +
+      "Firefox shows a notification (or Settings → Home → New Tabs); Chromium shows a keep/revert " +
+      "prompt the first time. When New Tab is handed to Bookmarks+, new tabs show the launcher."
+    )
+  );
+  root.appendChild(newTabSection);
+
   return root;
 }
 
