@@ -121,7 +121,9 @@ export default (env: { target?: string; browser?: string; mode?: string }): Conf
           { from: "src/options/options.css", to: "options/options.css" },
           { from: "src/onboarding/onboarding.html", to: "onboarding/onboarding.html" },
           { from: "src/onboarding/onboarding.css", to: "onboarding/onboarding.css" },
-          { from: "public/icons", to: "icons" },
+          // Ship only the rendered PNGs the manifest references; icon.svg is the
+          // source artwork, not needed in the package.
+          { from: "public/icons", to: "icons", globOptions: { ignore: ["**/icon.svg"] } },
           {
             // Source is irrelevant — we emit the precomputed merged manifest; keep a real file as `from`.
             from: "manifests/manifest.shared.json",
