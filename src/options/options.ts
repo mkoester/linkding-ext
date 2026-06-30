@@ -17,6 +17,11 @@ import type {
 // Provider types that may only exist once (no per-instance config to distinguish them).
 const SINGLETON_PROVIDER_TYPES = new Set<ProviderType>(["static", "browser"]);
 
+// The bundled demo bookmarks/folders, so users can see what tags/titles/URLs the
+// static provider supplies when crafting folder rules.
+const STATIC_DATA_URL =
+  "https://raw.githubusercontent.com/mkoester/linkding-ext/refs/heads/main/shared/data/static.ts";
+
 let folders: Folder[] = [];
 let providers: ProviderConfig[] = [];
 let bookmarks: BookmarkMap = {};
@@ -504,13 +509,31 @@ function renderProviderConfig(provider: ProviderConfig, index: number): HTMLElem
     return note;
   }
   if (provider.type === "static") {
+    const div = document.createElement("div");
+
     const note = document.createElement("p");
     note.className = "provider-note";
     note.textContent =
       "A predefined set of demo bookmarks bundled with the extension, meant for trying things out " +
       "before you connect a real provider. Nothing to configure here — add a Linkding, JSON, or " +
       "browser-bookmarks provider when you're ready to use your own data.";
-    return note;
+    div.appendChild(note);
+
+    const tip = document.createElement("p");
+    tip.className = "provider-note";
+    const link = document.createElement("a");
+    link.href = STATIC_DATA_URL;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "View the demo data";
+    tip.append(
+      link,
+      " to see the exact tags, titles, and URLs it contains — handy when experimenting " +
+      "with match rules in the Folders tab."
+    );
+    div.appendChild(tip);
+
+    return div;
   }
   return null;
 }
