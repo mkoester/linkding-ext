@@ -83,8 +83,9 @@ const shared: Configuration = {
 export default (env: { target?: string; browser?: string; mode?: string }): Configuration => {
   // `target` is preferred; `browser` is accepted for backwards compatibility.
   const target = env?.target ?? env?.browser ?? "chrome";
-  // Release builds pass `--env mode=production` (minified, no source maps). Dev/watch
-  // builds default to development with inline source maps.
+  // Release builds pass `--env mode=production` (tree-shaken, no source maps, but
+  // NOT minified — see optimization below). Dev/watch builds default to development
+  // with inline source maps.
   const isProd = env?.mode === "production";
   const manifestFiles = TARGET_MANIFESTS[target];
   if (!manifestFiles) {
@@ -103,6 +104,11 @@ export default (env: { target?: string; browser?: string; mode?: string }): Conf
   return merge(shared, {
     mode: isProd ? "production" : "development",
     devtool: isProd ? false : "cheap-module-source-map",
+    // Never minify: AMO advises against it (no perf benefit for locally-loaded
+    // extension code, and minification triggers their source-code-submission
+    // requirement). We keep production mode's tree-shaking + no source maps, but
+    // ship readable JS. https://extensionworkshop.com/documentation/publish/source-code-submission/
+    optimization: { minimize: false },
     output: {
       path: outDir,
       filename: "[name].js",

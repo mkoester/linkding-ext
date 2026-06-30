@@ -8,7 +8,7 @@
 
 - **Package manager: pnpm** (not npm — `package-lock.json` is gitignored)
 - `pnpm type-check` — `tsc --noEmit`, should be clean
-- `pnpm build` — builds all three targets via webpack, **production mode** (minified, no source maps). `dev:*`/watch builds stay development with inline source maps. Mode is `--env mode=production` (see `isProd` in `webpack.config.ts`).
+- `pnpm build` — builds all three targets via webpack, **production mode** (tree-shaken, no source maps, **not minified** — `optimization.minimize: false`, because AMO advises against minification and it has no perf benefit for local extension code). `dev:*`/watch builds stay development with inline source maps. Mode is `--env mode=production` (see `isProd` in `webpack.config.ts`).
 - `pnpm package` — builds, then zips each `dist/<target>/` into `web-store/bookmarks-plus-<target>-<version>.zip` for store upload (needs the `zip` CLI). `web-store/` is gitignored.
 - `pnpm screenshots` — generates repeatable 1280×800 store screenshots to `web-store/screenshots/`. `scripts/screenshots.mjs` copies `dist/chrome`, injects `scripts/screenshot-harness.js` (mocks `chrome.*` with demo data so the real page bundles render headless), captures each surface with system **chromium --headless**, and frames the small ones with **ImageMagick** (caption font resolved via `fc-match`). Edit the `DEMO` data in the harness or the `SHOTS` list to change content. Needs `chromium` + `magick` on PATH; no npm install.
 - **Icon source:** `public/icons/icon.svg` (white paperclip + "+" badge on linkding violet `#5856e0`); re-rasterise with `rsvg-convert -w 48/-w 128 icon.svg -o icon48/128.png`. `icon.svg` is excluded from the build copy (PNGs only ship).
