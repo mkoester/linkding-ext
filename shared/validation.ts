@@ -1,4 +1,5 @@
 import type { Bookmark } from "./types";
+import { isAllowedBookmarkUrl, isAllowedFaviconUrl } from "./url";
 
 export interface ValidationResult {
   valid: boolean;
@@ -17,12 +18,8 @@ function validateBookmarkEntry(b: unknown, index: number): string[] {
 
   if (typeof bookmark.url !== "string" || !bookmark.url.trim()) {
     errors.push(`${prefix}: url must be a non-empty string`);
-  } else {
-    try {
-      new URL(bookmark.url);
-    } catch {
-      errors.push(`${prefix}: url is not a valid URL`);
-    }
+  } else if (!isAllowedBookmarkUrl(bookmark.url)) {
+    errors.push(`${prefix}: url must be a valid http, https, mailto, or ftp URL`);
   }
 
   if (typeof bookmark.title !== "string" || !bookmark.title.trim()) {
@@ -40,12 +37,8 @@ function validateBookmarkEntry(b: unknown, index: number): string[] {
   if ("favicon_url" in bookmark) {
     if (typeof bookmark.favicon_url !== "string" || !bookmark.favicon_url.trim()) {
       errors.push(`${prefix}: favicon_url must be a non-empty string when present`);
-    } else {
-      try {
-        new URL(bookmark.favicon_url as string);
-      } catch {
-        errors.push(`${prefix}: favicon_url is not a valid URL`);
-      }
+    } else if (!isAllowedFaviconUrl(bookmark.favicon_url)) {
+      errors.push(`${prefix}: favicon_url must be a valid http, https, or data URL`);
     }
   }
 

@@ -1,8 +1,14 @@
 import ext from "@shared/browser";
-import { getBookmarks, getFolders, getSettings, saveBookmarksAndSync } from "@shared/storage";
+import {
+  getFolders,
+  getSettings,
+  saveBookmarksAndSync,
+  saveSyncStatus,
+} from "@shared/storage";
 import { bookmarksToMap, computeFolderMembership } from "@shared/bookmarks";
 import { createProvider } from "@shared/providers/index";
-import type { Message } from "@shared/types";
+import { debugLog } from "@shared/debug";
+import type { Message, SyncError } from "@shared/types";
 
 const SYNC_ALARM = "bookmarks-plus-sync";
 const MIN_SYNC_INTERVAL_MS = 60_000;
@@ -13,7 +19,7 @@ let lastSyncAttempt = 0;
 // ---- Setup ------------------------------------------------------------------
 
 ext.runtime.onInstalled.addListener(async (details) => {
-  console.log("Extension installed, running initial sync");
+  debugLog("Extension installed, running initial sync");
   await setupAlarm();
   await sync();
 
@@ -90,13 +96,13 @@ async function setupAlarm(): Promise<void> {
 
 async function sync(force = false): Promise<void> {
   if (syncing) {
-    console.log("Sync already in progress, skipping");
+    debugLog("Sync already in progress, skipping");
     return;
   }
 
   const now = Date.now();
   if (!force && now - lastSyncAttempt < MIN_SYNC_INTERVAL_MS) {
-    console.log("Sync debounced, too soon since last attempt");
+    debugLog("Sync debounced, too soon since last attempt");
     return;
   }
 
@@ -106,15 +112,17 @@ async function sync(force = false): Promise<void> {
   try {
     const settings = await getSettings();
     const allBookmarks = [];
+    const errors: SyncError[] = [];
 
     for (const config of settings.providers) {
       try {
         const provider = createProvider(config);
         const bookmarks = await provider.sync();
         allBookmarks.push(...bookmarks);
-        console.log(`Provider "${config.name}": ${bookmarks.length} bookmarks`);
+        debugLog(`Provider "${config.name}": ${bookmarks.length} bookmarks`);
       } catch (err) {
         console.error(`Provider "${config.name}" sync failed:`, err);
+        errors.push({ name: config.name, message: describeError(err) });
       }
     }
 
@@ -122,10 +130,21 @@ async function sync(force = false): Promise<void> {
     const folders = await getFolders();
     const recomputed = computeFolderMembership(map, folders);
     await saveBookmarksAndSync(map, recomputed, new Date().toISOString());
-    console.log(`Sync complete: ${allBookmarks.length} bookmarks total`);
+    await saveSyncStatus({ at: new Date().toISOString(), errors });
+    debugLog(`Sync complete: ${allBookmarks.length} bookmarks total`);
   } catch (error) {
     console.error("Sync failed:", error);
   } finally {
     syncing = false;
   }
+}
+
+// A short, user-facing reason for a provider failure. Linkding throws
+// "Linkding API error: HTTP 401"; a network/CORS failure surfaces as a TypeError.
+function describeError(err: unknown): string {
+  if (err instanceof Error) {
+    if (err.name === "TypeError") return "Couldn't connect (network, CORS, or host permission).";
+    return err.message;
+  }
+  return String(err);
 }

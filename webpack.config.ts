@@ -52,8 +52,6 @@ function deepMergeManifests(base: any, override: any): any {
 }
 
 const shared: Configuration = {
-  mode: "development",
-  devtool: "cheap-module-source-map",
   entry: {
     background: "./src/background/background.ts",
     newtab: "./src/newtab/newtab.ts",
@@ -82,9 +80,12 @@ const shared: Configuration = {
   },
 };
 
-export default (env: { target?: string; browser?: string }): Configuration => {
+export default (env: { target?: string; browser?: string; mode?: string }): Configuration => {
   // `target` is preferred; `browser` is accepted for backwards compatibility.
   const target = env?.target ?? env?.browser ?? "chrome";
+  // Release builds pass `--env mode=production` (minified, no source maps). Dev/watch
+  // builds default to development with inline source maps.
+  const isProd = env?.mode === "production";
   const manifestFiles = TARGET_MANIFESTS[target];
   if (!manifestFiles) {
     throw new Error(`Unknown build target "${target}". Known: ${Object.keys(TARGET_MANIFESTS).join(", ")}`);
@@ -100,6 +101,8 @@ export default (env: { target?: string; browser?: string }): Configuration => {
   const outDir = path.resolve(__dirname, `dist/${target}`);
 
   return merge(shared, {
+    mode: isProd ? "production" : "development",
+    devtool: isProd ? false : "cheap-module-source-map",
     output: {
       path: outDir,
       filename: "[name].js",
@@ -107,6 +110,7 @@ export default (env: { target?: string; browser?: string }): Configuration => {
     plugins: [
       new CopyPlugin({
         patterns: [
+          { from: "src/tokens.css", to: "tokens.css" },
           { from: "src/newtab/newtab.html", to: "newtab/newtab.html" },
           { from: "src/newtab/newtab.css", to: "newtab/newtab.css" },
           { from: "src/popup/popup.html", to: "popup/popup.html" },

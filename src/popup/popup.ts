@@ -1,13 +1,22 @@
 import ext from "@shared/browser";
-import { getBookmarks, getFolders } from "@shared/storage";
+import { getBookmarks, getFolders, getSyncStatus } from "@shared/storage";
 import { renderFavicon } from "@shared/favicon";
+import { applyStoredTheme } from "@shared/theme";
+import { renderSyncErrorBanner } from "@shared/syncBanner";
+import { isAllowedBookmarkUrl } from "@shared/url";
 import type { Bookmark, BookmarkMap, Folder, Message } from "@shared/types";
 
 async function init(): Promise<void> {
-  const [bookmarkMap, folders] = await Promise.all([
+  await applyStoredTheme();
+
+  const [bookmarkMap, folders, syncStatus] = await Promise.all([
     getBookmarks(),
     getFolders(),
+    getSyncStatus(),
   ]);
+
+  const banner = renderSyncErrorBanner(syncStatus);
+  if (banner) document.getElementById("sync-error")!.appendChild(banner);
 
   renderFolders(bookmarkMap, folders);
 
@@ -44,7 +53,7 @@ function renderFolder(folder: Folder, bookmarkMap: BookmarkMap): HTMLElement {
     e.preventDefault();
     const bookmarks = folder.bookmark_ids
       .map((id) => bookmarkMap[id])
-      .filter((b): b is Bookmark => b != null);
+      .filter((b): b is Bookmark => b != null && isAllowedBookmarkUrl(b.url));
     for (const bookmark of bookmarks) {
       ext.tabs.create({ url: bookmark.url });
     }
@@ -65,10 +74,13 @@ function renderFolder(folder: Folder, bookmarkMap: BookmarkMap): HTMLElement {
 function renderBookmark(bookmark: Bookmark): HTMLElement {
   const li = document.createElement("li");
   const a = document.createElement("a");
-  a.href = bookmark.url;
+  const safe = isAllowedBookmarkUrl(bookmark.url);
+  a.href = safe ? bookmark.url : "#";
+  if (!safe) a.title = "Blocked: unsupported link type";
 
   a.addEventListener("click", (e) => {
     e.preventDefault();
+    if (!safe) return;
     ext.tabs.create({ url: bookmark.url });
     window.close();
   });

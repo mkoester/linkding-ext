@@ -1,5 +1,5 @@
 import ext from "./browser";
-import type { BookmarkMap, Folder, Settings, StorageSchema } from "./types";
+import type { BookmarkMap, Folder, Settings, StorageSchema, SyncStatus } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 import { STATIC_FOLDERS } from "./data/static";
 
@@ -41,4 +41,13 @@ export async function saveBookmarksAndSync(
 ): Promise<void> {
   const update: Partial<StorageSchema> = { bookmarks, folders, lastSync };
   await ext.storage.local.set(update);
+}
+
+export async function getSyncStatus(): Promise<SyncStatus | null> {
+  const result = await ext.storage.local.get("syncStatus");
+  return (result.syncStatus as SyncStatus) ?? null;
+}
+
+export async function saveSyncStatus(status: SyncStatus): Promise<void> {
+  await ext.storage.local.set({ syncStatus: status });
 }

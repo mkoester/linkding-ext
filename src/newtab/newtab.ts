@@ -1,7 +1,10 @@
 import ext from "@shared/browser";
-import { getBookmarks, getFolders } from "@shared/storage";
+import { getBookmarks, getFolders, getSyncStatus } from "@shared/storage";
 import { renderFavicon } from "@shared/favicon";
-import type { Bookmark, BookmarkMap, Folder, Message } from "@shared/types";
+import { applyStoredTheme } from "@shared/theme";
+import { renderSyncErrorBanner } from "@shared/syncBanner";
+import { isAllowedBookmarkUrl } from "@shared/url";
+import type { Bookmark, BookmarkMap, Folder, Message, SyncStatus } from "@shared/types";
 
 // Skip re-rendering (and aborting in-flight favicon loads) when a sync writes
 // back data that's identical to what's already on screen.
@@ -14,6 +17,8 @@ let lastRenderKey = "";
 // block any script-side redirect back to the native page — about:home/about:blank are denied). So
 // if we're running here, the user opted in — just render the launcher.
 async function init(): Promise<void> {
+  await applyStoredTheme();
+
   document.getElementById("open-settings")?.addEventListener("click", () => {
     ext.runtime.openOptionsPage();
   });
@@ -26,16 +31,25 @@ async function init(): Promise<void> {
 // ---- Render -----------------------------------------------------------------
 
 async function render(): Promise<void> {
-  const [bookmarkMap, folders] = await Promise.all([
+  const [bookmarkMap, folders, syncStatus] = await Promise.all([
     getBookmarks(),
     getFolders(),
+    getSyncStatus(),
   ]);
 
-  const key = JSON.stringify({ bookmarkMap, folders });
+  const key = JSON.stringify({ bookmarkMap, folders, syncStatus });
   if (key === lastRenderKey) return;
   lastRenderKey = key;
 
+  renderBanner(syncStatus);
   renderFolders(bookmarkMap, folders);
+}
+
+function renderBanner(syncStatus: SyncStatus | null): void {
+  const slot = document.getElementById("sync-error")!;
+  slot.innerHTML = "";
+  const banner = renderSyncErrorBanner(syncStatus);
+  if (banner) slot.appendChild(banner);
 }
 
 function renderFolders(bookmarkMap: BookmarkMap, folders: Folder[]): void {
@@ -81,9 +95,18 @@ function renderFolder(folder: Folder, bookmarkMap: BookmarkMap): HTMLElement {
 function renderBookmark(bookmark: Bookmark): HTMLElement {
   const li = document.createElement("li");
   const a = document.createElement("a");
-  a.href = bookmark.url;
-  a.target = "_blank";
-  a.rel = "noopener noreferrer";
+
+  // Defensive: only link out to safe schemes. A `javascript:` URL clicked here
+  // would run in this privileged extension page, so a bad bookmark is neutered.
+  if (isAllowedBookmarkUrl(bookmark.url)) {
+    a.href = bookmark.url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+  } else {
+    a.href = "#";
+    a.title = "Blocked: unsupported link type";
+    a.addEventListener("click", (e) => e.preventDefault());
+  }
 
   const span = document.createElement("span");
   span.textContent = bookmark.title;
@@ -106,8 +129,11 @@ function requestSync(): void {
 function listenForChanges(): void {
   ext.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-    if (changes.bookmarks || changes.folders) {
+    if (changes.bookmarks || changes.folders || changes.syncStatus) {
       render();
+    }
+    if (changes.settings) {
+      applyStoredTheme();
     }
   });
 }

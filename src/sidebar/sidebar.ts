@@ -1,7 +1,10 @@
 import ext from "@shared/browser";
-import { getBookmarks, getFolders } from "@shared/storage";
+import { getBookmarks, getFolders, getSyncStatus } from "@shared/storage";
 import { renderFavicon } from "@shared/favicon";
-import type { Bookmark, BookmarkMap, Folder, Message } from "@shared/types";
+import { applyStoredTheme } from "@shared/theme";
+import { renderSyncErrorBanner } from "@shared/syncBanner";
+import { isAllowedBookmarkUrl } from "@shared/url";
+import type { Bookmark, BookmarkMap, Folder, Message, SyncStatus } from "@shared/types";
 
 // The sidebar mirrors the popup's folder rendering, but it stays open, so it
 // re-renders on storage changes and opens bookmarks in the current tab instead
@@ -12,6 +15,7 @@ import type { Bookmark, BookmarkMap, Folder, Message } from "@shared/types";
 let lastRenderKey = "";
 
 async function init(): Promise<void> {
+  await applyStoredTheme();
   registerForToggle();
 
   await render();
@@ -42,16 +46,25 @@ async function registerForToggle(): Promise<void> {
 // ---- Render -----------------------------------------------------------------
 
 async function render(): Promise<void> {
-  const [bookmarkMap, folders] = await Promise.all([
+  const [bookmarkMap, folders, syncStatus] = await Promise.all([
     getBookmarks(),
     getFolders(),
+    getSyncStatus(),
   ]);
 
-  const key = JSON.stringify({ bookmarkMap, folders });
+  const key = JSON.stringify({ bookmarkMap, folders, syncStatus });
   if (key === lastRenderKey) return;
   lastRenderKey = key;
 
+  renderBanner(syncStatus);
   renderFolders(bookmarkMap, folders);
+}
+
+function renderBanner(syncStatus: SyncStatus | null): void {
+  const slot = document.getElementById("sync-error")!;
+  slot.innerHTML = "";
+  const banner = renderSyncErrorBanner(syncStatus);
+  if (banner) slot.appendChild(banner);
 }
 
 function renderFolders(bookmarkMap: BookmarkMap, folders: Folder[]): void {
@@ -80,7 +93,7 @@ function renderFolder(folder: Folder, bookmarkMap: BookmarkMap): HTMLElement {
     e.preventDefault();
     const bookmarks = folder.bookmark_ids
       .map((id) => bookmarkMap[id])
-      .filter((b): b is Bookmark => b != null);
+      .filter((b): b is Bookmark => b != null && isAllowedBookmarkUrl(b.url));
     for (const bookmark of bookmarks) {
       ext.tabs.create({ url: bookmark.url, active: false });
     }
@@ -100,12 +113,15 @@ function renderFolder(folder: Folder, bookmarkMap: BookmarkMap): HTMLElement {
 function renderBookmark(bookmark: Bookmark): HTMLElement {
   const li = document.createElement("li");
   const a = document.createElement("a");
-  a.href = bookmark.url;
+  const safe = isAllowedBookmarkUrl(bookmark.url);
+  a.href = safe ? bookmark.url : "#";
+  if (!safe) a.title = "Blocked: unsupported link type";
 
   // Left-click: navigate the current tab (the sidebar stays open). Middle-click
   // is left to the native anchor behaviour, which opens a background tab.
   a.addEventListener("click", (e) => {
     e.preventDefault();
+    if (!safe) return;
     ext.tabs.update({ url: bookmark.url });
   });
 
@@ -130,8 +146,11 @@ function requestSync(): void {
 function listenForChanges(): void {
   ext.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-    if (changes.bookmarks || changes.folders) {
+    if (changes.bookmarks || changes.folders || changes.syncStatus) {
       render();
+    }
+    if (changes.settings) {
+      applyStoredTheme();
     }
   });
 }

@@ -1,5 +1,6 @@
 import ext from "./browser";
 import type { Bookmark } from "./types";
+import { isAllowedFaviconUrl } from "./url";
 
 // Chrome exposes the browser's cached favicons — which include icons declared in
 // the page via <link rel="icon"> — through the `_favicon` endpoint (gated on the
@@ -25,8 +26,11 @@ export function renderFavicon(bookmark: Bookmark, size: number): HTMLImageElemen
 }
 
 function faviconSrc(bookmark: Bookmark, size: number): string {
-  // A favicon explicitly provided by a source (e.g. Linkding) always wins.
-  if (bookmark.favicon_url) return bookmark.favicon_url;
+  // A favicon explicitly provided by a source (e.g. Linkding) always wins — but
+  // only if it's a safe scheme (a provider could hand us anything as an <img src>).
+  if (bookmark.favicon_url && isAllowedFaviconUrl(bookmark.favicon_url)) {
+    return bookmark.favicon_url;
+  }
 
   if (isChrome) {
     // Request at 2x for crispness on HiDPI; the <img> is still sized to `size`.

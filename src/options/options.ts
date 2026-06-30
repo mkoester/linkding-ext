@@ -1,5 +1,6 @@
 import ext from "@shared/browser";
 import { getBookmarks, getFolders, getSettings, saveFolders, saveSettings } from "@shared/storage";
+import { applyStoredTheme, setTheme } from "@shared/theme";
 import type {
   BookmarkMap,
   Folder,
@@ -10,6 +11,7 @@ import type {
   ProviderType,
   RuleCondition,
   Settings,
+  Theme,
 } from "@shared/types";
 
 // Provider types that may only exist once (no per-instance config to distinguish them).
@@ -19,6 +21,7 @@ let folders: Folder[] = [];
 let providers: ProviderConfig[] = [];
 let bookmarks: BookmarkMap = {};
 let syncIntervalMinutes = 15;
+let theme: Theme = "system";
 let grantedHostOrigins: string[] = [];
 let activeTabId = "overview";
 let tagSort: { key: "tag" | "count"; dir: "asc" | "desc" } = { key: "count", dir: "desc" };
@@ -34,7 +37,9 @@ async function init(): Promise<void> {
   providers = settings.providers;
   bookmarks = savedBookmarks;
   syncIntervalMinutes = settings.syncIntervalMinutes;
+  theme = settings.theme;
 
+  await applyStoredTheme();
   await loadGrantedOrigins();
 
   document.getElementById("save")?.addEventListener("click", save);
@@ -153,6 +158,31 @@ function renderOverviewPanel(): HTMLElement {
   intervalLabel.appendChild(intervalInput);
   syncSection.appendChild(intervalLabel);
   root.appendChild(syncSection);
+
+  // Appearance
+  const appearanceSection = document.createElement("section");
+  appearanceSection.appendChild(sectionHeading("Appearance"));
+  const themeLabel = document.createElement("label");
+  themeLabel.textContent = "Theme";
+  const themeSelect = document.createElement("select");
+  ([
+    ["system", "System (match your OS)"],
+    ["light", "Light"],
+    ["dark", "Dark"],
+  ] as Array<[Theme, string]>).forEach(([value, label]) => {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = label;
+    if (theme === value) opt.selected = true;
+    themeSelect.appendChild(opt);
+  });
+  themeSelect.addEventListener("change", () => {
+    theme = themeSelect.value as Theme;
+    setTheme(theme); // live preview; persisted on Save
+  });
+  themeLabel.appendChild(themeSelect);
+  appearanceSection.appendChild(themeLabel);
+  root.appendChild(appearanceSection);
 
   // New Tab page (informational — the browser, not the extension, controls whether it's used)
   const newTabSection = document.createElement("section");
@@ -346,7 +376,7 @@ function renderPermissionsPanel(): HTMLElement {
 // ---- Save -------------------------------------------------------------------
 
 async function save(): Promise<void> {
-  const settings: Settings = { syncIntervalMinutes, providers };
+  const settings: Settings = { syncIntervalMinutes, providers, theme };
 
   // Permission request must be the first await — user gesture activation expires after the first
   // async operation in Firefox. Bundle the bookmarks permission (browser provider) and the host

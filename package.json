@@ -1,15 +1,16 @@
 {
   "name": "linkding-ext",
-  "version": "0.1.34",
+  "version": "0.1.35",
   "description": "Browser extension for Linkding bookmarks",
   "scripts": {
     "dev:chrome": "webpack --config webpack.config.ts --env target=chrome --watch",
     "dev:chrome-newtab": "webpack --config webpack.config.ts --env target=chrome-newtab --watch",
     "dev:firefox": "webpack --config webpack.config.ts --env target=firefox --watch",
-    "build:chrome": "webpack --config webpack.config.ts --env target=chrome",
-    "build:chrome-newtab": "webpack --config webpack.config.ts --env target=chrome-newtab",
-    "build:firefox": "webpack --config webpack.config.ts --env target=firefox",
+    "build:chrome": "webpack --config webpack.config.ts --env target=chrome --env mode=production",
+    "build:chrome-newtab": "webpack --config webpack.config.ts --env target=chrome-newtab --env mode=production",
+    "build:firefox": "webpack --config webpack.config.ts --env target=firefox --env mode=production",
     "build": "pnpm run build:firefox && pnpm run build:chrome && pnpm run build:chrome-newtab",
+    "package": "pnpm run build && node scripts/package.mjs",
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {

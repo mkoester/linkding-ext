@@ -80,13 +80,29 @@ export interface StorageSchema {
   folders: Folder[];
   lastSync: string | null;
   settings: Settings;
+  syncStatus: SyncStatus;
+}
+
+// ---- Sync status ------------------------------------------------------------
+
+export interface SyncError {
+  name: string; // provider name that failed
+  message: string; // human-readable reason
+}
+
+export interface SyncStatus {
+  at: string; // ISO timestamp of the sync that produced this status
+  errors: SyncError[];
 }
 
 // ---- Settings ---------------------------------------------------------------
 
+export type Theme = "system" | "light" | "dark";
+
 export interface Settings {
   syncIntervalMinutes: number;
   providers: ProviderConfig[];
+  theme: Theme;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -94,6 +110,7 @@ export const DEFAULT_SETTINGS: Settings = {
   providers: [
     { id: "static-default", type: "static", name: "Static" },
   ],
+  theme: "system",
 };
 
 // ---- Messages ---------------------------------------------------------------

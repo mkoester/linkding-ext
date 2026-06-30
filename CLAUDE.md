@@ -8,7 +8,8 @@
 
 - **Package manager: pnpm** (not npm — `package-lock.json` is gitignored)
 - `pnpm type-check` — `tsc --noEmit`, should be clean
-- `pnpm build` — builds all three targets via webpack (see below)
+- `pnpm build` — builds all three targets via webpack, **production mode** (minified, no source maps). `dev:*`/watch builds stay development with inline source maps. Mode is `--env mode=production` (see `isProd` in `webpack.config.ts`).
+- `pnpm package` — builds, then zips each `dist/<target>/` into `web-store/bookmarks-plus-<target>-<version>.zip` for store upload (needs the `zip` CLI). `web-store/` is gitignored.
 - **Build targets** (webpack `--env target=…`, output `dist/<target>/`): `firefox` (shared + firefox manifests; has new-tab override), `chrome` (shared + chrome; NO new-tab override), `chrome-newtab` (shared + chrome + chrome-newtab overlay; new-tab override + renamed "Bookmarks+ (new tab edition)"). `TARGET_MANIFESTS` in `webpack.config.ts` lists the manifest files merged (in order) per target. Bundled JS is identical across targets — only the manifest differs.
 - Load in Firefox: `about:debugging` → Load Temporary Add-on → `dist/firefox/manifest.json`
 - Load in Chrome/Chromium: `chrome://extensions` → Enable developer mode → Load unpacked → `dist/chrome/` (or `dist/chrome-newtab/`)
@@ -71,6 +72,18 @@ A bookmark can appear in multiple folders. No "uncategorized" folder.
 **Browser API abstraction**
 - `shared/browser.ts` exports a single `ext` object — `browser` in Firefox, `chrome` in Chrome
 - All code imports from there; no direct `browser.*` or `chrome.*` calls
+
+**URL scheme allowlist (security)**
+- `shared/url.ts` — `isAllowedBookmarkUrl` (http/https/mailto/ftp) and `isAllowedFaviconUrl` (http/https/data). `new URL()` alone accepts `javascript:`, which would run in a privileged extension page, so schemes are enforced at validation time (JSON provider) AND defensively at render time (newtab/popup/sidebar neuter bad links; favicon.ts ignores unsafe `favicon_url`).
+
+**Theme**
+- `Settings.theme: "system" | "light" | "dark"` (default `system`). `shared/theme.ts` sets a `data-theme` attribute on `<html>`; `src/tokens.css` (copied to `dist/tokens.css`, linked by every page before its own CSS) maps it — plus the OS `prefers-color-scheme` when the attribute is absent — to a shared `:root` token set. Each page calls `applyStoredTheme()` in init; options has the picker (live preview via `setTheme`, persisted on Save).
+
+**Sync error banner**
+- Background `sync()` records per-provider failures to `storage.local` as `syncStatus: { at, errors }`. The new-tab/popup/sidebar surfaces render `shared/syncBanner.ts`'s banner from it (and re-render on `syncStatus` change). All text via `textContent` (provider names/messages are untrusted).
+
+**Debug logging**
+- `shared/debug.ts` — `DEBUG` (false in shipped builds) gates `debugLog`/`debugWarn`. Real failures still use `console.error`. Previously the browser provider dumped the whole bookmark tree to the console; that's now behind `DEBUG`.
 
 **`unlimitedStorage` permission (Chrome only)**
 - Chrome manifest: `optional_permissions: ["unlimitedStorage", "bookmarks"]`
@@ -139,8 +152,9 @@ Pagination: follows `next` links until exhausted (100 results per page).
 - [ ] Manual JSON import UI — `validateBookmarks()` exists in `validation.ts` and the options page has a JSON textarea, but there's no live validation feedback shown to the user
 - [ ] Per-provider incremental sync — Linkding supports `modified_since`; could speed up large collections
 - [ ] Options page does not yet request host permission for Linkding URLs (optional_host_permissions)
-- [ ] CSS is minimal placeholder — all three pages need proper styling
-- [ ] Real icons — replace `public/icons/icon{48,128}.png` with actual artwork
+- [ ] Real icons — replace `public/icons/icon{48,128}.png` with actual artwork (still placeholder blue circles; **store release blocker**)
+- [x] ~~CSS placeholder~~ — shared `:root` token set in `src/tokens.css`, light/dark/system themes
+- [x] ~~Error state UI when sync fails~~ — sync error banner (see Architecture)
 
 **Nice to have**
 - [ ] Folder ordering (drag to reorder)
@@ -155,4 +169,4 @@ Pagination: follows `next` links until exhausted (100 results per page).
 - All variable names, comments, and output strings in English
 - Prefer explicit types over inference where it aids readability
 - No default exports except `shared/browser.ts`
-- CSS variables not yet introduced — when doing a styling pass, consider a `:root` token set shared across all three pages
+- CSS colours go through the `src/tokens.css` `:root` tokens (`var(--bg)` etc.) — don't reintroduce hardcoded hex in page CSS, or light/dark theming breaks
