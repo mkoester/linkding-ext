@@ -9,6 +9,33 @@ import ext from "@shared/browser";
 // are the dependable signal: moz-extension:// on Firefox vs chrome-extension:// on Chromium.
 const isFirefox = location.protocol === "moz-extension:";
 
+// ---- DOM helpers (no innerHTML — AMO flags dynamic innerHTML assignment) -----
+
+function strong(text: string): HTMLElement {
+  const s = document.createElement("strong");
+  s.textContent = text;
+  return s;
+}
+
+function para(...parts: Array<Node | string>): HTMLParagraphElement {
+  const p = document.createElement("p");
+  p.append(...parts);
+  return p;
+}
+
+function withClass<T extends HTMLElement>(el: T, className: string): T {
+  el.className = className;
+  return el;
+}
+
+function linkEl(id: string, href: string, ...parts: Array<Node | string>): HTMLAnchorElement {
+  const a = document.createElement("a");
+  a.id = id;
+  a.href = href;
+  a.append(...parts);
+  return a;
+}
+
 // A plain <a href="chrome://…"> is blocked from navigating; open it via the tabs API instead.
 function wireChromeLink(id: string, url: string): void {
   document.getElementById(id)?.addEventListener("click", (e) => {
@@ -23,18 +50,25 @@ function tailorSidebarItem(): void {
 
   if (isFirefox) {
     // Ctrl+Alt+S is the suggested_key for _execute_sidebar_action in manifest.firefox.json.
-    item.innerHTML =
-      "<strong>Sidebar</strong> — open it from Firefox's sidebar, or press <strong>Ctrl+Alt+S</strong> " +
-      "(rebindable in about:addons → ⚙ → Manage Extension Shortcuts).";
+    item.replaceChildren(
+      strong("Sidebar"),
+      " — open it from Firefox's sidebar, or press ",
+      strong("Ctrl+Alt+S"),
+      " (rebindable in about:addons → ⚙ → Manage Extension Shortcuts)."
+    );
     return;
   }
 
   const shortcutsUrl = "chrome://extensions/shortcuts";
-  item.innerHTML =
-    "<strong>Side panel</strong> — press <strong>Ctrl+Shift+S</strong> to open it (rebindable at " +
-    `<a id="shortcuts-link" href="${shortcutsUrl}">${shortcutsUrl}</a>). Some Chromium builds also ` +
-    "show a side-panel button in the toolbar, but others (e.g. ungoogled-chromium) hide it — the " +
-    "shortcut always works.";
+  item.replaceChildren(
+    strong("Side panel"),
+    " — press ",
+    strong("Ctrl+Shift+S"),
+    " to open it (rebindable at ",
+    linkEl("shortcuts-link", shortcutsUrl, shortcutsUrl),
+    "). Some Chromium builds also show a side-panel button in the toolbar, but others (e.g. " +
+      "ungoogled-chromium) hide it — the shortcut always works."
+  );
   wireChromeLink("shortcuts-link", shortcutsUrl);
 }
 
@@ -48,37 +82,62 @@ function tailorNewTabSection(): void {
 
   if (hasNewTab && isFirefox) {
     heading.textContent = "New tab";
-    body.innerHTML =
-      "<p>New tabs now show your Bookmarks+ launcher.</p>" +
-      "<p>To switch back to Firefox's default, open <strong>Settings → Home → New Windows and " +
-      "Tabs → New tabs</strong> and pick Firefox Home — or use the notification Firefox showed " +
-      "when the extension took over. You can flip it back any time.</p>";
+    body.replaceChildren(
+      para("New tabs now show your Bookmarks+ launcher."),
+      para(
+        "To switch back to Firefox's default, open ",
+        strong("Settings → Home → New Windows and Tabs → New tabs"),
+        " and pick Firefox Home — or use the notification Firefox showed when the extension took " +
+          "over. You can flip it back any time."
+      )
+    );
     return;
   }
 
   if (hasNewTab && !isFirefox) {
     const startupUrl = "chrome://settings/?search=start";
     heading.textContent = "New tab";
-    body.innerHTML =
-      "<p>New tabs now show your Bookmarks+ launcher.</p>" +
-      "<p class=\"warn\">Chromium may have changed your <strong>On startup</strong> setting when it " +
-      "took over the new tab. If your browser no longer restores your previous session, open " +
-      `<a id="startup-link" href="${startupUrl}"><strong>Settings → On startup</strong></a> ` +
-      "and reselect <strong>“Continue where you left off.”</strong> " +
-      "New tabs will still show the launcher — the two settings are independent.</p>" +
-      "<p class=\"muted\">Didn't actually want the new-tab takeover? Install the standard " +
-      "<strong>“Bookmarks+”</strong> build instead — it leaves your native new tab alone.</p>";
-
+    body.replaceChildren(
+      para("New tabs now show your Bookmarks+ launcher."),
+      withClass(
+        para(
+          "Chromium may have changed your ",
+          strong("On startup"),
+          " setting when it took over the new tab. If your browser no longer restores your " +
+            "previous session, open ",
+          linkEl("startup-link", startupUrl, strong("Settings → On startup")),
+          " and reselect ",
+          strong("“Continue where you left off.”"),
+          " New tabs will still show the launcher — the two settings are independent."
+        ),
+        "warn"
+      ),
+      withClass(
+        para(
+          "Didn't actually want the new-tab takeover? Install the standard ",
+          strong("“Bookmarks+”"),
+          " build instead — it leaves your native new tab alone."
+        ),
+        "muted"
+      )
+    );
     wireChromeLink("startup-link", startupUrl);
     return;
   }
 
   // Plain Chromium build: no override.
   heading.textContent = "New tab (not in this build)";
-  body.innerHTML =
-    "<p>This build leaves your browser's native new tab untouched.</p>" +
-    "<p class=\"muted\">Want new tabs to show your Bookmarks+ launcher instead? Install the " +
-    "<strong>“Bookmarks+ (new tab edition)”</strong> build.</p>";
+  body.replaceChildren(
+    para("This build leaves your browser's native new tab untouched."),
+    withClass(
+      para(
+        "Want new tabs to show your Bookmarks+ launcher instead? Install the ",
+        strong("“Bookmarks+ (new tab edition)”"),
+        " build."
+      ),
+      "muted"
+    )
+  );
 }
 
 document.addEventListener("DOMContentLoaded", () => {
